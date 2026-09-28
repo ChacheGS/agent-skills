@@ -13,7 +13,21 @@ from pathlib import Path
 import _checks
 import _config
 
-VERSION = (Path(__file__).resolve().parent / "VERSION").read_text().strip()
+VERSION_FILE = Path(__file__).resolve().parent / "VERSION"
+
+
+def version() -> str:
+    """The version beside these scripts, or nothing.
+
+    Read when asked rather than at import, and absent rather than fatal:
+    the README lists VERSION among the files to vendor, so a half-done
+    copy is ordinary and deserves the "could not run" it is rather than
+    a traceback before argparse has looked at the arguments.
+    """
+    try:
+        return VERSION_FILE.read_text(encoding="utf-8-sig").strip()
+    except OSError:
+        return ""
 
 CHECKS = (
     _checks.index_is_current,
@@ -55,7 +69,7 @@ def main(argv: list[str] | None = None) -> int:
         print(finding)
     # After the findings and never counted: falling behind the skill is
     # news, not a defect in the record.
-    for note in _checks.stamp_is_current(config, VERSION):
+    for note in _checks.stamp_is_current(config, version()):
         print(note)
 
     if findings:

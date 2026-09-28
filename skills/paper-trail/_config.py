@@ -51,7 +51,7 @@ def load(root: Path) -> Config:
             f"new.py --config to write it."
         )
     try:
-        data = tomllib.loads(path.read_text())
+        data = tomllib.loads(path.read_text(encoding="utf-8-sig"))
     except tomllib.TOMLDecodeError as broken:
         raise PaperTrailError(f"{path} is not valid TOML: {broken}") from None
 

@@ -21,6 +21,21 @@ STATUSES = frozenset({"open", "resolved", "rejected", "superseded"})
 NAMED = re.compile(r"^(\d{4})-[a-z0-9][a-z0-9-]*$")
 
 
+def read(path: Path) -> str:
+    """A file from the record, as text.
+
+    Always utf-8, never the locale's default: that is ascii in a
+    C-locale container and cp1252 on Windows, and either one turns a
+    degree sign into a crash. `utf-8-sig` drops a byte order mark, which
+    Windows editors write and which otherwise reads as content and
+    diagnoses the wrong problem.
+    """
+    try:
+        return path.read_text(encoding="utf-8-sig")
+    except UnicodeDecodeError as broken:
+        raise PaperTrailError(f"{path} is not utf-8: {broken}") from None
+
+
 def frontmatter(text: str) -> tuple[dict, str]:
     """The TOML block between +++ fences, and everything after it."""
     lines = text.split("\n")
@@ -62,15 +77,23 @@ def decisions(config: Config) -> list[Decision]:
     if not config.decisions.is_dir():
         return []
 
+    try:
+        # iterdir rather than glob: glob swallows a PermissionError and
+        # answers [], and an index rewritten from that empty answer
+        # overwrites a populated one and reports success.
+        listed = sorted(path for path in config.decisions.iterdir() if path.suffix == ".md")
+    except OSError as broken:
+        raise PaperTrailError(f"{config.decisions} cannot be read: {broken}") from None
+
     found: dict[str, Decision] = {}
-    for path in sorted(config.decisions.glob("*.md")):
+    for path in listed:
         named = NAMED.match(path.stem)
         if named is None:
             raise PaperTrailError(
                 f"{path.name} is not named NNNN-slug.md, so nothing can link to it by id"
             )
         try:
-            fields, body = frontmatter(path.read_text())
+            fields, body = frontmatter(read(path))
         except PaperTrailError as broken:
             raise PaperTrailError(f"{path}: {broken}") from None
 
@@ -125,7 +148,7 @@ def adr_relations(path: Path) -> tuple[str, ...]:
     Anything else is refused rather than guessed at, because a reader
     that quietly returned () would report every ADR as citing nothing.
     """
-    lines = path.read_text().split("\n")
+    lines = read(path).split("\n")
     if not lines or lines[0].strip() != "---":
         return ()
     try:

@@ -7,6 +7,7 @@ from tempfile import TemporaryDirectory
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import _checks
+import _config
 import _docs
 import _render
 import fixtures
@@ -335,3 +336,62 @@ class ClosedWithoutADate(unittest.TestCase):
 
             self.assertEqual(len(findings), 1)
             self.assertIn("when it closed", findings[0].what)
+
+
+class CannotRun(unittest.TestCase):
+    def test_a_half_vendored_copy_with_no_version_still_runs(self):
+        """The README lists VERSION among the files to copy, so a
+        half-done vendor is ordinary. Reading it at import time made that
+        a traceback before argparse ever ran."""
+        import check
+
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(Path(name), decisions=[("0001", "A thing", "body")])
+            config.index.parent.mkdir(parents=True, exist_ok=True)
+            config.index.write_text(
+                _render.render(_docs.decisions(config), root=config.root, index=config.index),
+                encoding="utf-8",
+            )
+            original = check.VERSION_FILE
+            try:
+                check.VERSION_FILE = Path(name) / "no-such-VERSION"
+                self.assertEqual(check.main(["--root", name]), 0)
+            finally:
+                check.VERSION_FILE = original
+
+    def test_without_the_git_binary_the_check_skips(self):
+        """A .git directory says nothing about git being on PATH. Every
+        Windows checkout has one, and a minimal CI image without git is
+        ordinary."""
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(Path(name))
+            (config.root / ".git").mkdir()
+            (config.investigations / "0001-a-hunt.md").write_text("# a hunt\n", encoding="utf-8")
+            empty = Path(name) / "empty-path"
+            empty.mkdir()
+            original = os.environ.get("PATH")
+            try:
+                os.environ["PATH"] = str(empty)
+                findings, skipped = _checks.stale_investigations(config)
+            finally:
+                os.environ["PATH"] = original or ""
+
+            self.assertEqual(findings, [])
+            self.assertIn("git", skipped)
+
+
+class UnreadableDecisions(unittest.TestCase):
+    def test_a_directory_that_cannot_be_read_is_not_an_empty_one(self):
+        """Path.glob swallows the PermissionError, so index.py would
+        overwrite a populated index with "nothing" and exit 0, and
+        check.py would invite the user to run exactly that."""
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(Path(name), decisions=[("0001", "A thing", "body")])
+            config.decisions.chmod(0o000)
+            try:
+                with self.assertRaises(_config.PaperTrailError) as refusal:
+                    _docs.decisions(config)
+            finally:
+                config.decisions.chmod(0o755)
+
+            self.assertIn("cannot be read", str(refusal.exception))

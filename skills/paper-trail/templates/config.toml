@@ -5,7 +5,9 @@ skill_version = "{version}"
 [paths]
 decisions = "docs/decisions"
 investigations = "docs/investigations"
-index = "docs/decisions/README.md"
+# Anywhere but inside `decisions`: every file there must be a decision,
+# so an index written among them refuses to parse ever after.
+index = "docs/DECISIONS.md"
 adr = "docs/adr"
 specs = "docs/specs"
 plans = "docs/plans"

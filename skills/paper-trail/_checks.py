@@ -78,7 +78,7 @@ def _where(path: Path, config: Config) -> str:
 def index_is_current(config: Config) -> list[Finding]:
     """The whole answer to a status two places would have to agree on."""
     wanted = _render.render(_docs.decisions(config), root=config.root, index=config.index)
-    found = config.index.read_text() if config.index.is_file() else ""
+    found = config.index.read_text(encoding="utf-8-sig") if config.index.is_file() else ""
     if found == wanted:
         return []
     return [Finding(where=_where(config.index, config), what="is not what the decisions say. Run index.py.")]
@@ -106,7 +106,7 @@ def links_resolve(config: Config) -> list[Finding]:
     moved_to = {item.id: item.path for item in _docs.decisions(config)}
     findings = []
     for path in markdown_files(config):
-        for target in LINK.findall(prose(path.read_text())):
+        for target in LINK.findall(prose(path.read_text(encoding="utf-8-sig"))):
             if target.startswith(EXTERNAL):
                 continue
             name, _, _anchor = target.partition("#")
@@ -173,7 +173,7 @@ def paths_exist(config: Config) -> list[Finding]:
     """
     findings = []
     for path in describing_now(config):
-        for claim in PATHLIKE.findall(path.read_text()):
+        for claim in PATHLIKE.findall(path.read_text(encoding="utf-8-sig")):
             if "/" not in claim or claim.startswith(("./", "../")):
                 continue
             if (config.root / claim).exists():
@@ -184,12 +184,27 @@ def paths_exist(config: Config) -> list[Finding]:
     return findings
 
 
+def _git_works(root: Path) -> bool:
+    """Whether the binary is there, not just the directory."""
+    try:
+        return subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "--git-dir"], capture_output=True
+        ).returncode == 0
+    except OSError:
+        return False
+
+
 def _last_touched(root: Path, path: Path) -> datetime | None:
-    done = subprocess.run(
-        ["git", "-C", str(root), "log", "-1", "--format=%cI", "--", str(path)],
-        capture_output=True,
-        text=True,
-    )
+    try:
+        done = subprocess.run(
+            ["git", "-C", str(root), "log", "-1", "--format=%cI", "--", str(path)],
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        # git is not on PATH. A .git directory says nothing about that,
+        # and every Windows checkout has one.
+        return None
     if done.returncode != 0 or not done.stdout.strip():
         return None
     return datetime.fromisoformat(done.stdout.strip())
@@ -202,8 +217,8 @@ def stale_investigations(config: Config) -> tuple[list[Finding], str | None]:
     repository is not a given: this has to work in an export with no
     history, and saying so beats either failing or lying.
     """
-    if not (config.root / ".git").exists():
-        return [], "no git repository here, so investigation staleness was not checked"
+    if not (config.root / ".git").exists() or not _git_works(config.root):
+        return [], "no git available here, so investigation staleness was not checked"
     if not config.investigations.is_dir():
         return [], None
 

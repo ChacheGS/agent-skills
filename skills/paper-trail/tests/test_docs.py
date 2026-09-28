@@ -211,3 +211,44 @@ class ClosedWithoutADate(unittest.TestCase):
 
             self.assertEqual(item.status, "resolved")
             self.assertIsNone(item.closed)
+
+
+class Encoding(unittest.TestCase):
+    def repo(self, root, name, raw):
+        (root / "docs" / "decisions").mkdir(parents=True)
+        (root / "docs" / "decisions" / name).write_bytes(raw)
+        (root / ".paper-trail.toml").write_text(
+            "[paths]\n"
+            'decisions = "docs/decisions"\ninvestigations = "docs/i"\nindex = "docs/x.md"\n'
+            'adr = "docs/adr"\nspecs = "docs/s"\nplans = "docs/p"\n',
+            encoding="utf-8",
+        )
+        return _config.load(root)
+
+    def test_a_decision_is_read_as_utf8_whatever_the_locale_says(self):
+        """The locale default is ascii in a C-locale container and cp1252
+        on Windows, and either one turns a degree sign into a crash."""
+        with TemporaryDirectory() as name:
+            body = DECISION.replace("A node says what it is once", "Levelling to 0.25°")
+            config = self.repo(Path(name), "0042-levelling.md", body.encode("utf-8"))
+
+            self.assertEqual(_docs.decisions(config)[0].title, "Levelling to 0.25°")
+
+    def test_a_byte_order_mark_is_not_a_missing_fence(self):
+        """Windows editors write one, and reading it as content diagnoses
+        the wrong problem entirely."""
+        with TemporaryDirectory() as name:
+            config = self.repo(
+                Path(name), "0042-a.md", b"\xef\xbb\xbf" + DECISION.encode("utf-8")
+            )
+
+            self.assertEqual(_docs.decisions(config)[0].id, "0042")
+
+    def test_a_file_that_is_not_utf8_is_a_refusal_rather_than_a_crash(self):
+        with TemporaryDirectory() as name:
+            config = self.repo(Path(name), "0042-a.md", b"+++\nid = \"0042\"\n\xff\xfe+++\n")
+
+            with self.assertRaises(_config.PaperTrailError) as refusal:
+                _docs.decisions(config)
+
+            self.assertIn("utf-8", str(refusal.exception).lower())

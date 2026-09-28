@@ -69,3 +69,40 @@ class Writing(unittest.TestCase):
 
             config = _config.load(root)
             self.assertEqual(config.mode, "vendored")
+
+
+class FirstRun(unittest.TestCase):
+    def test_scaffold_then_index_then_check_leaves_a_clean_record(self):
+        """The shipped default put the index inside the decisions
+        directory, where the parser refuses it, so every entry point
+        refused for ever after the first index run and nothing said that
+        deleting it was the fix."""
+        import check
+        import index
+
+        with TemporaryDirectory() as name:
+            root = Path(name)
+
+            self.assertEqual(new.main(["--root", str(root), "--config"]), 0)
+            self.assertEqual(new.main(["--root", str(root), "decision", "A first thing"]), 0)
+            self.assertEqual(index.main(["--root", str(root)]), 0)
+            self.assertEqual(check.main(["--root", str(root)]), 0)
+            self.assertEqual(new.main(["--root", str(root), "decision", "A second thing"]), 0)
+
+    def test_a_title_with_no_letters_in_it_is_refused(self):
+        """slug() can return nothing, and `0002-.md` wedges the record the
+        same way a stray file does."""
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(Path(name))
+
+            self.assertEqual(new.main(["--root", str(config.root), "decision", "!!! ???"]), 2)
+            self.assertEqual(list(config.decisions.glob("*.md")), [])
+
+    def test_an_investigations_directory_with_a_readme_still_scaffolds(self):
+        """int('READ') is a ValueError, and a README beside the
+        investigations is an ordinary thing to have."""
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(Path(name))
+            (config.investigations / "README.md").write_text("# how we work\n")
+
+            self.assertEqual(new.main(["--root", str(config.root), "investigation", "A hunt"]), 0)

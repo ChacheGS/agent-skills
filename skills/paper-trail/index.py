@@ -33,7 +33,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     config.index.parent.mkdir(parents=True, exist_ok=True)
-    config.index.write_text(text)
+    config.index.write_text(text, encoding="utf-8")
     print(f"wrote {config.index}")
     return 0
 

@@ -34,8 +34,9 @@ def _write_config(root: Path) -> int:
     if path.exists():
         print(f"{path} already exists", file=sys.stderr)
         return 2
-    version = (HERE / "VERSION").read_text().strip()
-    path.write_text((TEMPLATES / "config.toml").read_text().format(version=version))
+    version = (HERE / "VERSION").read_text(encoding="utf-8-sig").strip()
+    template = (TEMPLATES / "config.toml").read_text(encoding="utf-8-sig")
+    path.write_text(template.format(version=version), encoding="utf-8")
     print(path)
     return 0
 
@@ -60,20 +61,33 @@ def main(argv: list[str] | None = None) -> int:
         existing = (
             [item.id for item in _docs.decisions(config)]
             if args.kind == "decision"
-            else [path.stem[:4] for path in sorted(config.investigations.glob("*.md"))]
+            else [
+                path.stem[:4]
+                for path in sorted(config.investigations.glob("*.md"))
+                if path.stem[:4].isdigit()
+            ]
         )
     except _config.PaperTrailError as refusal:
         print(refusal, file=sys.stderr)
         return 2
 
     directory = config.decisions if args.kind == "decision" else config.investigations
+    named = slug(args.title)
+    if not named:
+        # `0002-.md` is not a name the parser accepts, so writing one
+        # would wedge the record exactly as a stray file does.
+        print(
+            f"{args.title!r} leaves nothing to name a file with. Give it a few words.",
+            file=sys.stderr,
+        )
+        return 2
     identifier = next_id(existing)
-    path = directory / f"{identifier}-{slug(args.title)}.md"
+    path = directory / f"{identifier}-{named}.md"
     directory.mkdir(parents=True, exist_ok=True)
+    template = (TEMPLATES / f"{args.kind}.md").read_text(encoding="utf-8-sig")
     path.write_text(
-        (TEMPLATES / f"{args.kind}.md")
-        .read_text()
-        .format(id=identifier, title=args.title, today=date.today())
+        template.format(id=identifier, title=args.title, today=date.today()),
+        encoding="utf-8",
     )
     print(path)
     return 0
