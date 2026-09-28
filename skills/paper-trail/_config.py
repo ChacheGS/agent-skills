@@ -55,6 +55,20 @@ def load(root: Path) -> Config:
     except tomllib.TOMLDecodeError as broken:
         raise PaperTrailError(f"{path} is not valid TOML: {broken}") from None
 
+    unknown = sorted(set(data) - {"mode", "skill_version", "paths", "thresholds"})
+    if unknown:
+        raise PaperTrailError(f"{path} has unknown top-level keys: {unknown}")
+    thresholds = data.get("thresholds", {})
+    extra = sorted(set(thresholds) - {"investigation_days"})
+    if extra:
+        # Same reason as [paths]: a typo leaves the real key at its
+        # default and checks nothing, silently.
+        raise PaperTrailError(f"{path} has unknown [thresholds] keys: {extra}")
+    if data.get("mode", "vendored") not in ("vendored", "referenced"):
+        raise PaperTrailError(
+            f"{path}: mode is {data['mode']!r}; it is vendored or referenced"
+        )
+
     paths = data.get("paths", {})
     missing = [key for key in PATH_KEYS if key not in paths]
     if missing:
@@ -70,7 +84,7 @@ def load(root: Path) -> Config:
         mode=str(data.get("mode", "vendored")),
         skill_version=str(data.get("skill_version", "")),
         investigation_days=int(
-            data.get("thresholds", {}).get("investigation_days", DEFAULT_INVESTIGATION_DAYS)
+            thresholds.get("investigation_days", DEFAULT_INVESTIGATION_DAYS)
         ),
         **{key: (root / paths[key]).resolve() for key in PATH_KEYS},
     )

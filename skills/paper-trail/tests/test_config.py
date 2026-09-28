@@ -63,3 +63,56 @@ class Loading(unittest.TestCase):
                 _config.load(root)
 
             self.assertIn("investigations", str(refusal.exception))
+
+    def test_an_unknown_thresholds_key_is_refused(self):
+        """Same reason as [paths]: a typo leaves the real key at its
+        default and checks nothing."""
+        with TemporaryDirectory() as name:
+            root = Path(name)
+            (root / ".paper-trail.toml").write_text(
+                "[paths]\n"
+                + "".join(f'{key} = "docs/{key}"\n' for key in _config.PATH_KEYS)
+                + "[thresholds]\ninvestigaton_days = 3\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(_config.PaperTrailError) as refusal:
+                _config.load(root)
+
+            self.assertIn("investigaton_days", str(refusal.exception))
+
+    def test_an_unknown_top_level_key_is_refused(self):
+        with TemporaryDirectory() as name:
+            root = Path(name)
+            (root / ".paper-trail.toml").write_text(
+                'skil_version = "1.0.0"\n[paths]\n'
+                + "".join(f'{key} = "docs/{key}"\n' for key in _config.PATH_KEYS),
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(_config.PaperTrailError) as refusal:
+                _config.load(root)
+
+            self.assertIn("skil_version", str(refusal.exception))
+
+    def test_a_mode_that_is_neither_is_refused(self):
+        with TemporaryDirectory() as name:
+            root = Path(name)
+            (root / ".paper-trail.toml").write_text(
+                "mode = 7\n[paths]\n"
+                + "".join(f'{key} = "docs/{key}"\n' for key in _config.PATH_KEYS),
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(_config.PaperTrailError):
+                _config.load(root)
+
+    def test_invalid_toml_says_so(self):
+        with TemporaryDirectory() as name:
+            root = Path(name)
+            (root / ".paper-trail.toml").write_text("[paths\n", encoding="utf-8")
+
+            with self.assertRaises(_config.PaperTrailError) as refusal:
+                _config.load(root)
+
+            self.assertIn("valid TOML", str(refusal.exception))

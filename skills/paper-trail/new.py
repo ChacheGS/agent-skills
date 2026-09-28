@@ -84,10 +84,10 @@ def main(argv: list[str] | None = None) -> int:
     identifier = next_id(existing)
     path = directory / f"{identifier}-{named}.md"
     directory.mkdir(parents=True, exist_ok=True)
-    template = (TEMPLATES / f"{args.kind}.md").read_text(encoding="utf-8-sig")
     path.write_text(
-        template.format(id=identifier, title=args.title, today=date.today()),
-        encoding="utf-8",
+        (TEMPLATES / f"{args.kind}.md")
+        .read_text(encoding="utf-8-sig")
+        .format(id=identifier, title=args.title, today=date.today())
     )
     print(path)
     return 0

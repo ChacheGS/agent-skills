@@ -21,8 +21,8 @@ def version() -> str:
 
     Read when asked rather than at import, and absent rather than fatal:
     the README lists VERSION among the files to vendor, so a half-done
-    copy is ordinary and deserves the "could not run" it is rather than
-    a traceback before argparse has looked at the arguments.
+    copy is ordinary and deserves the "could not run" it is rather than a
+    traceback before argparse has looked at the arguments.
     """
     try:
         return VERSION_FILE.read_text(encoding="utf-8-sig").strip()
@@ -50,7 +50,10 @@ def main(argv: list[str] | None = None) -> int:
         print(refusal, file=sys.stderr)
         return 2
 
-    findings = []
+    # Every file that will not parse, named one by one, before anything
+    # that reads them all. A run that stopped at the first made a person
+    # run the checks once per defect and quietly abandoned the rest.
+    findings = _checks.readable(config)[1]
     skipped = None
     try:
         for check in CHECKS:
@@ -58,9 +61,7 @@ def main(argv: list[str] | None = None) -> int:
         stale, skipped = _checks.stale_investigations(config)
         findings.extend(stale)
     except _config.PaperTrailError as broken:
-        # A decision file that will not parse is a problem with the record
-        # rather than with the configuration. Every check reads the
-        # decisions, so there is nothing further to run until it is fixed.
+        # Something no single file owns, such as two sharing an id.
         findings.append(_checks.Finding(where="the record", what=str(broken)))
 
     if skipped:

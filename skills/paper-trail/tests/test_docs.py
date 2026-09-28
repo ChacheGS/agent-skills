@@ -252,3 +252,50 @@ class Encoding(unittest.TestCase):
                 _docs.decisions(config)
 
             self.assertIn("utf-8", str(refusal.exception).lower())
+
+
+class AdrSubset(unittest.TestCase):
+    def read(self, body):
+        with TemporaryDirectory() as name:
+            path = Path(name) / "adr_001.md"
+            path.write_text(f"---\nrelated:\n{body}---\n", encoding="utf-8")
+            return _docs.adr_relations(path)
+
+    def test_a_quoted_scalar_is_unquoted(self):
+        """Quoted scalars are ordinary YAML, and keeping the quotes makes
+        the path a file nobody named."""
+        self.assertEqual(self.read('  - "docs/quoted.md"\n'), ("docs/quoted.md",))
+
+    def test_a_hash_inside_a_path_is_not_a_comment(self):
+        """YAML starts a comment at a # preceded by whitespace."""
+        self.assertEqual(self.read("  - docs/note#2.md\n"), ("docs/note#2.md",))
+
+    def test_a_comment_after_a_path_is_still_dropped(self):
+        self.assertEqual(self.read("  - docs/a.md  # and why\n"), ("docs/a.md",))
+
+    def test_an_inline_list_item_is_refused(self):
+        with self.assertRaises(_config.PaperTrailError):
+            self.read("  - [a, b]\n")
+
+
+class Dates(unittest.TestCase):
+    def test_a_quoted_date_is_refused(self):
+        """TOML writes a date bare. Quoted it is a string, which renders
+        into the index and compares against nothing."""
+        with TemporaryDirectory() as name:
+            root = Path(name)
+            (root / "docs" / "decisions").mkdir(parents=True)
+            (root / "docs" / "decisions" / "0042-a.md").write_text(
+                DECISION.replace("opened = 2026-09-25", 'opened = "banana"'), encoding="utf-8"
+            )
+            (root / ".paper-trail.toml").write_text(
+                "[paths]\n"
+                'decisions = "docs/decisions"\ninvestigations = "docs/i"\nindex = "docs/x.md"\n'
+                'adr = "docs/adr"\nspecs = "docs/s"\nplans = "docs/p"\n',
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(_config.PaperTrailError) as refusal:
+                _docs.decisions(_config.load(root))
+
+            self.assertIn("not a date", str(refusal.exception))

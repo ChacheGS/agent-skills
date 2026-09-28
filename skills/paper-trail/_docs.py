@@ -85,6 +85,11 @@ def decisions(config: Config) -> list[Decision]:
     except OSError as broken:
         raise PaperTrailError(f"{config.decisions} cannot be read: {broken}") from None
 
+    return decisions_in(config, listed)
+
+
+def decisions_in(config: Config, listed: list[Path]) -> list[Decision]:
+    """The decisions in exactly these files, by id."""
     found: dict[str, Decision] = {}
     for path in listed:
         named = NAMED.match(path.stem)
@@ -117,6 +122,14 @@ def _decision(*, path: Path, fields: dict, body: str) -> Decision:
     for required in ("id", "title", "status", "opened", "conclusion"):
         if required not in fields:
             raise PaperTrailError(f"{path}: frontmatter has no {required}")
+    for when in ("opened", "closed"):
+        given = fields.get(when)
+        if given is not None and not isinstance(given, date):
+            raise PaperTrailError(
+                f"{path}: {when} is {given!r}, which is not a date. TOML writes one "
+                f"bare, as 2026-09-28, and quoting it makes it a string nothing can "
+                f"compare."
+            )
     status = fields["status"]
     if status not in STATUSES:
         raise PaperTrailError(
@@ -165,10 +178,17 @@ def adr_relations(path: Path) -> tuple[str, ...]:
             item = line.strip()
             if not item.startswith("- "):
                 raise PaperTrailError(f"{path}: cannot read {item!r} under related:")
-            # A trailing comment is not part of the path: real ADRs
-            # carry them, and reading one would report a file nobody
-            # named.
-            related.append(item[2:].split("#")[0].strip())
+            value = item[2:].strip()
+            # A comment starts at a # preceded by whitespace; a # inside a
+            # filename does not. Real ADRs carry the first kind.
+            value = value.split(" #")[0].rstrip()
+            if value[:1] in ("[", "{", "&", "*"):
+                raise PaperTrailError(f"{path}: cannot read {value!r} under related:")
+            if len(value) > 1 and value[0] == value[-1] and value[0] in "\"'":
+                # A quoted scalar is ordinary YAML, and keeping the quotes
+                # makes the path a file nobody named.
+                value = value[1:-1]
+            related.append(value)
             continue
         collecting = False
         key, separator, value = line.partition(":")

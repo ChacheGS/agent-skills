@@ -395,3 +395,114 @@ class UnreadableDecisions(unittest.TestCase):
                 config.decisions.chmod(0o755)
 
             self.assertIn("cannot be read", str(refusal.exception))
+
+
+class EveryProblemAtOnce(unittest.TestCase):
+    def test_three_broken_decisions_are_three_findings(self):
+        """One run lists everything wrong. Stopping at the first makes a
+        person run it once per defect, and it also abandoned every other
+        check including the skipped line."""
+        import check
+
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(Path(name), decisions=[("0001", "A thing", "body")])
+            for identifier in ("0002", "0003", "0004"):
+                (config.decisions / f"{identifier}-broken.md").write_text(
+                    "no frontmatter here\n", encoding="utf-8"
+                )
+
+            self.assertEqual(check.main(["--root", name]), 1)
+            findings = _checks.readable(config)[1]
+
+            self.assertEqual(len(findings), 3)
+
+    def test_a_broken_decision_is_named_relative_to_the_repo(self):
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(Path(name))
+            (config.decisions / "0002-broken.md").write_text("nope\n", encoding="utf-8")
+
+            finding = _checks.readable(config)[1][0]
+
+            self.assertEqual(finding.where, "docs/decisions/0002-broken.md")
+
+
+class FencesAndPaths(unittest.TestCase):
+    def test_a_path_shown_inside_a_fence_is_an_example(self):
+        """paths_exist read raw text, so a decision showing what a path
+        looks like was reported as naming a file that is not there."""
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(
+                Path(name),
+                decisions=[("0001", "A thing", "```\nsee `src/gone.py`\n```")],
+            )
+
+            self.assertEqual(_checks.paths_exist(config), [])
+
+    def test_a_tilde_fence_hides_its_links_too(self):
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(
+                Path(name),
+                decisions=[("0001", "A thing", "~~~\n[x](../specs/imaginary.md)\n~~~")],
+            )
+
+            self.assertEqual(_checks.links_resolve(config), [])
+
+    def test_an_inner_fence_does_not_reopen_the_outer_block(self):
+        """A markdown example containing a code block: the inner fences
+        toggled the state back and everything after them was checked."""
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(
+                Path(name),
+                decisions=[
+                    ("0001", "A thing", "````md\n```\n[x](../specs/imaginary.md)\n```\n````")
+                ],
+            )
+
+            self.assertEqual(_checks.links_resolve(config), [])
+
+
+class LinkForms(unittest.TestCase):
+    def one(self, root, body, **extra):
+        return _checks.links_resolve(
+            fixtures.repo(root, decisions=[("0001", "A thing", body)], extra=extra or None)
+        )
+
+    def test_a_titled_link_is_checked(self):
+        """[a](b.md "Title") matched nothing, so titled links were never
+        looked at."""
+        with TemporaryDirectory() as name:
+            self.assertEqual(len(self.one(Path(name), 'see [x](../specs/gone.md "Why")')), 1)
+
+    def test_an_angle_bracketed_target_is_unwrapped(self):
+        with TemporaryDirectory() as name:
+            found = self.one(Path(name), "see [x](<../specs/real.md>)",
+                             **{"docs/specs/real.md": "# real\n"})
+
+            self.assertEqual(found, [])
+
+    def test_a_percent_encoded_space_resolves(self):
+        with TemporaryDirectory() as name:
+            found = self.one(Path(name), "see [x](../specs/with%20space.md)",
+                             **{"docs/specs/with space.md": "# real\n"})
+
+            self.assertEqual(found, [])
+
+    def test_a_root_relative_link_resolves_against_the_repo(self):
+        """path.parent / "/docs/x.md" is the filesystem root, so it was
+        checked against the wrong tree entirely."""
+        with TemporaryDirectory() as name:
+            found = self.one(Path(name), "see [x](/docs/specs/real.md)",
+                             **{"docs/specs/real.md": "# real\n"})
+
+            self.assertEqual(found, [])
+
+    def test_a_rename_hint_needs_a_real_id(self):
+        """Matching on any four leading characters reported an unrelated
+        file as "which is now" the decision."""
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(
+                Path(name),
+                decisions=[("0001", "A thing", "see [x](../specs/0001abcd-notes.md)")],
+            )
+
+            self.assertIn("is not there", _checks.links_resolve(config)[0].what)
