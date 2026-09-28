@@ -260,33 +260,47 @@ def paths_exist(config: Config) -> list[Finding]:
     return findings
 
 
-def _git_works(root: Path) -> bool:
-    """Whether the binary is there, not just the directory.
+def _git(root: Path, *args: str) -> subprocess.CompletedProcess | None:
+    """Run git here, or None if there is no git to run.
 
-    Every Windows checkout has a .git, and a minimal CI image without git
-    is ordinary.
+    A missing binary and a directory that is not in a repository are the
+    same answer to the caller: the question cannot be asked.
     """
     try:
-        return (
-            subprocess.run(
-                ["git", "-C", str(root), "rev-parse", "--git-dir"], capture_output=True
-            ).returncode
-            == 0
-        )
-    except OSError:
-        return False
-
-
-def _last_touched(root: Path, path: Path) -> datetime | None:
-    try:
-        done = subprocess.run(
-            ["git", "-C", str(root), "log", "-1", "--format=%cI", "--", str(path)],
-            capture_output=True,
-            text=True,
+        return subprocess.run(
+            ["git", "-C", str(root), *args], capture_output=True, text=True
         )
     except OSError:
         return None
-    if done.returncode != 0 or not done.stdout.strip():
+
+
+def _in_a_repository(root: Path) -> bool:
+    """Ask git rather than looking for a .git beside the config.
+
+    The record is often not at the repository root, and a repository is
+    often not where the record is: a directory holding several repos as
+    children has no .git of its own, and a subdirectory of a repo has no
+    .git either. Looking for the directory answered no to both.
+    """
+    done = _git(root, "rev-parse", "--git-dir")
+    return done is not None and done.returncode == 0
+
+
+def _tracked(root: Path, directory: Path) -> bool:
+    """Whether git knows about anything in here at all.
+
+    A record kept out of git, by .gitignore or by living in a directory
+    nobody shares, makes every file read as never committed. Silently
+    exempting it from staleness is worse than saying the question cannot
+    be answered.
+    """
+    done = _git(root, "ls-files", "--", str(directory))
+    return done is not None and done.returncode == 0 and bool(done.stdout.strip())
+
+
+def _last_touched(root: Path, path: Path) -> datetime | None:
+    done = _git(root, "log", "-1", "--format=%cI", "--", str(path))
+    if done is None or done.returncode != 0 or not done.stdout.strip():
         return None
     return datetime.fromisoformat(done.stdout.strip())
 
@@ -298,10 +312,17 @@ def stale_investigations(config: Config) -> tuple[list[Finding], str | None]:
     repository is not a given: this has to work in an export with no
     history, and saying so beats either failing or lying.
     """
-    if not (config.root / ".git").exists() or not _git_works(config.root):
-        return [], "no git available here, so investigation staleness was not checked"
+    if not _in_a_repository(config.root):
+        return [], "no git repository here, so investigation staleness was not checked"
     if not config.investigations.is_dir():
         return [], None
+    if any(config.investigations.glob("*.md")) and not _tracked(
+        config.root, config.investigations
+    ):
+        return [], (
+            f"{_where(config.investigations, config)} is not tracked by git, so "
+            f"investigation staleness was not checked"
+        )
 
     findings = []
     now = datetime.now(timezone.utc)

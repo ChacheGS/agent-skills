@@ -45,6 +45,26 @@ python3 tools/paper-trail/check.py --root .
 
 That distinction is the contract. Only one of those should stop a build.
 
+## Where your record lives, and what git can answer about it
+
+Nothing here needs the record to be in a repository, or the config to
+sit at a repository root. The only question git is asked is how long an
+investigation has sat untouched, and where it cannot be asked it is
+skipped with a sentence saying so, never failed:
+
+| Your layout | What happens |
+|---|---|
+| A repository, record tracked | staleness is checked |
+| A subdirectory of a repository | checked; the root need not be the repository root |
+| Repositories as children of a plain directory, config at the parent | skipped, with the reason |
+| A repository whose `docs/` is gitignored or otherwise untracked | skipped, with the reason |
+| No git installed at all | skipped, with the reason |
+
+The untracked case is worth knowing about because it used to be silent:
+every file read as never committed, so nothing was ever stale and
+nothing said why. Every other check works the same in all five, because
+none of them asks git anything.
+
 ## If you already have a table of decisions
 
 Splitting it into files is a one-time job, and the parser is not worth

@@ -506,3 +506,63 @@ class LinkForms(unittest.TestCase):
             )
 
             self.assertIn("is not there", _checks.links_resolve(config)[0].what)
+
+
+class RecordOutsideGit(unittest.TestCase):
+    def aged(self, config):
+        (config.investigations / "0001-a-hunt.md").write_text("# a hunt\n", encoding="utf-8")
+
+    def test_a_record_inside_a_repo_but_not_tracked_says_so(self):
+        """A repo whose docs are gitignored, or kept out of it on purpose.
+        Every file reads as never committed, so staleness was silently
+        never checked and nothing said why."""
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(Path(name))
+            self.aged(config)
+            git(config.root, "init", "-q")
+            (config.root / ".gitignore").write_text("docs/\n", encoding="utf-8")
+            git(config.root, "add", ".gitignore")
+            git(config.root, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "x")
+
+            findings, skipped = _checks.stale_investigations(config)
+
+            self.assertEqual(findings, [])
+            self.assertIn("not tracked", skipped)
+
+    def test_a_record_in_a_subdirectory_of_a_repo_is_still_checked(self):
+        """The root need not be the repo root. Looking for a .git beside
+        the config answered no for every subdirectory of every repo."""
+        with TemporaryDirectory() as name:
+            outer = Path(name)
+            git(outer, "init", "-q")
+            config = fixtures.repo(outer / "area")
+            self.aged(config)
+            git(outer, "add", "-A")
+            git(
+                outer, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "x",
+                when="2020-01-01T00:00:00+00:00",
+            )
+
+            findings, skipped = _checks.stale_investigations(config)
+
+            self.assertIsNone(skipped)
+            self.assertEqual(len(findings), 1)
+
+    def test_a_brand_new_investigation_beside_tracked_ones_stays_quiet(self):
+        """Untracked because it was written a minute ago, not because the
+        record lives outside git."""
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(Path(name))
+            self.aged(config)
+            git(config.root, "init", "-q")
+            git(config.root, "add", "-A")
+            git(
+                config.root, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "x",
+                when="2020-01-01T00:00:00+00:00",
+            )
+            (config.investigations / "0002-just-started.md").write_text("# new\n", encoding="utf-8")
+
+            findings, skipped = _checks.stale_investigations(config)
+
+            self.assertIsNone(skipped)
+            self.assertEqual(len(findings), 1)
