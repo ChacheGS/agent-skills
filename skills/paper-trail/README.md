@@ -9,9 +9,16 @@ Ubuntu 24.04 are fine, RHEL 9's system Python is 3.9 and is not.
 **Vendored**, the usual choice: copy `check.py`, `index.py`, `new.py`,
 `_config.py`, `_docs.py`, `_checks.py`, `_render.py`, `VERSION` and
 `templates/` into your repo and commit them. Your checks then run in CI
-and for a contributor who has never installed this skill. `check.py`
-compares `skill_version` in your config against the `VERSION` it was
-copied with and says when the two have parted.
+and for a contributor who has never installed this skill.
+
+A vendored copy cannot tell you that this skill has moved on, and
+nothing here pretends otherwise: the copy carries its own `VERSION`, so
+it has no way to see upstream. What `skill_version` in your config buys
+is smaller and still worth having. It is the version you recorded when
+you adopted, and `check.py` says so when it disagrees with the `VERSION`
+sitting beside the scripts, which is what a half-finished re-vendor
+looks like. Updating means copying the files again and writing the new
+number down.
 
 **Referenced**: leave them here and point at them. Nothing drifts, and
 nothing runs where this skill is absent.

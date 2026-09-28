@@ -212,7 +212,13 @@ def stale_investigations(config: Config) -> tuple[list[Finding], str | None]:
 
 
 def stamp_is_current(config: Config, version: str) -> list[Finding]:
-    """Whether a vendored copy has fallen behind the skill it came from.
+    """Whether the recorded version and the copied one still agree.
+
+    Not drift from upstream, which a vendored copy structurally cannot
+    see: it carries its own VERSION and has no way to reach the skill it
+    came from. What this catches is a re-vendor that copied the scripts
+    and forgot the config, or the reverse, which is easy to do because
+    they are two steps.
 
     Reported rather than failed by the caller: a contributor mid-task
     should hear about it without being stopped by it.
