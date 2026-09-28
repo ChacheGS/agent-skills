@@ -149,3 +149,65 @@ def paths_exist(config: Config) -> list[Finding]:
                 Finding(where=_where(path, config), what=f"names {claim}, which is not in the repo")
             )
     return findings
+
+
+def _last_touched(root: Path, path: Path) -> datetime | None:
+    done = subprocess.run(
+        ["git", "-C", str(root), "log", "-1", "--format=%cI", "--", str(path)],
+        capture_output=True,
+        text=True,
+    )
+    if done.returncode != 0 or not done.stdout.strip():
+        return None
+    return datetime.fromisoformat(done.stdout.strip())
+
+
+def stale_investigations(config: Config) -> tuple[list[Finding], str | None]:
+    """An investigation nobody has touched is finished or abandoned.
+
+    Returns its findings and, when it could not run, the reason. A
+    repository is not a given: this has to work in an export with no
+    history, and saying so beats either failing or lying.
+    """
+    if not (config.root / ".git").exists():
+        return [], "no git repository here, so investigation staleness was not checked"
+    if not config.investigations.is_dir():
+        return [], None
+
+    findings = []
+    now = datetime.now(timezone.utc)
+    for path in sorted(config.investigations.glob("*.md")):
+        touched = _last_touched(config.root, path)
+        if touched is None:
+            # Never committed, so it is being written right now.
+            continue
+        days = (now - touched).days
+        if days > config.investigation_days:
+            findings.append(
+                Finding(
+                    where=_where(path, config),
+                    what=(
+                        f"has not been touched in {days} days. Either it finished and owes "
+                        f"a decision, or it was abandoned and owes a deletion."
+                    ),
+                )
+            )
+    return findings, None
+
+
+def stamp_is_current(config: Config, version: str) -> list[Finding]:
+    """Whether a vendored copy has fallen behind the skill it came from.
+
+    Reported rather than failed by the caller: a contributor mid-task
+    should hear about it without being stopped by it.
+    """
+    if config.mode != "vendored" or not config.skill_version:
+        return []
+    if config.skill_version == version:
+        return []
+    return [
+        Finding(
+            where=".paper-trail.toml",
+            what=f"was vendored from paper-trail {config.skill_version}; this one is {version}",
+        )
+    ]
