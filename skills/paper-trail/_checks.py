@@ -84,6 +84,23 @@ def index_is_current(config: Config) -> list[Finding]:
     return [Finding(where=_where(config.index, config), what="is not what the decisions say. Run index.py.")]
 
 
+def closing_dates(config: Config) -> list[Finding]:
+    """A decision that stopped being open says when.
+
+    A finding rather than a refusal, because migrated history often does
+    not know: a date invented to satisfy a parser is worse than a gap
+    somebody can see and fill.
+    """
+    return [
+        Finding(
+            where=_where(item.path, config),
+            what=f"is {item.status} and nothing says when it closed",
+        )
+        for item in _docs.decisions(config)
+        if item.status != "open" and item.closed is None
+    ]
+
+
 def links_resolve(config: Config) -> list[Finding]:
     """Every relative link in the record points at something."""
     moved_to = {item.id: item.path for item in _docs.decisions(config)}

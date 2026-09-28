@@ -17,6 +17,7 @@ VERSION = (Path(__file__).resolve().parent / "VERSION").read_text().strip()
 
 CHECKS = (
     _checks.index_is_current,
+    _checks.closing_dates,
     _checks.links_resolve,
     _checks.relations_exist,
     _checks.paths_exist,

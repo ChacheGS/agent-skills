@@ -321,3 +321,17 @@ class AdrComments(unittest.TestCase):
             )
 
             self.assertEqual(_docs.adr_relations(path), ("docs/adr/adr_018.md",))
+
+
+class ClosedWithoutADate(unittest.TestCase):
+    def test_a_resolved_decision_that_never_said_when_is_a_finding(self):
+        """Visible as a gap rather than filled with a guess."""
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(Path(name), decisions=[("0001", "A thing", "body")])
+            path = config.decisions / "0001-a-thing.md"
+            path.write_text(path.read_text().replace('status = "open"', 'status = "resolved"'))
+
+            findings = _checks.closing_dates(config)
+
+            self.assertEqual(len(findings), 1)
+            self.assertIn("when it closed", findings[0].what)

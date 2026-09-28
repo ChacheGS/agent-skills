@@ -99,8 +99,6 @@ def _decision(*, path: Path, fields: dict, body: str) -> Decision:
         raise PaperTrailError(
             f"{path}: status {status!r} is not one of {', '.join(sorted(STATUSES))}"
         )
-    if status != "open" and not fields.get("closed"):
-        raise PaperTrailError(f"{path}: status is {status} and nothing says when it closed")
     if status == "superseded" and not fields.get("superseded_by"):
         raise PaperTrailError(f"{path}: superseded by nothing, so the trail stops here")
     return Decision(

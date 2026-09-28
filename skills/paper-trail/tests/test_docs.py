@@ -116,15 +116,6 @@ class Discovery(unittest.TestCase):
 
             self.assertIn("in progress", str(refusal.exception))
 
-    def test_a_closed_decision_that_says_nothing_about_when_is_refused(self):
-        with TemporaryDirectory() as name:
-            config = self.repo(name, **{"0042-a.md": DECISION.replace('"open"', '"resolved"')})
-
-            with self.assertRaises(_config.PaperTrailError) as refusal:
-                _docs.decisions(config)
-
-            self.assertIn("when it closed", str(refusal.exception))
-
     def test_a_superseded_decision_names_what_replaced_it(self):
         """A dead end with no forwarding address is the shape this design
         exists to remove."""
@@ -197,3 +188,26 @@ class AdrRelations(unittest.TestCase):
 
             with self.assertRaises(_config.PaperTrailError):
                 _docs.adr_relations(path)
+
+
+class ClosedWithoutADate(unittest.TestCase):
+    def test_a_resolved_decision_with_no_date_still_parses(self):
+        """Migrated history often does not know when something closed, and
+        a guess would be worse than a gap. The file is well formed; the
+        gap is a finding rather than a refusal."""
+        with TemporaryDirectory() as name:
+            root = Path(name)
+            (root / "docs" / "decisions").mkdir(parents=True)
+            (root / "docs" / "decisions" / "0001-a-thing.md").write_text(
+                DECISION.replace('"0042"', '"0001"').replace('"open"', '"resolved"')
+            )
+            (root / ".paper-trail.toml").write_text(
+                "[paths]\n"
+                'decisions = "docs/decisions"\ninvestigations = "docs/i"\nindex = "docs/x.md"\n'
+                'adr = "docs/adr"\nspecs = "docs/s"\nplans = "docs/p"\n'
+            )
+
+            item = _docs.decisions(_config.load(root))[0]
+
+            self.assertEqual(item.status, "resolved")
+            self.assertIsNone(item.closed)
