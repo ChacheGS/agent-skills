@@ -1,0 +1,16 @@
+# Where this repo keeps its written record, and how it got the scripts.
+mode = "vendored"
+skill_version = "{version}"
+
+[paths]
+decisions = "docs/decisions"
+investigations = "docs/investigations"
+index = "docs/decisions/README.md"
+adr = "docs/adr"
+specs = "docs/specs"
+plans = "docs/plans"
+
+[thresholds]
+# An investigation nothing has touched in this many days is either
+# finished and owes a decision, or abandoned and owes a deletion.
+investigation_days = 14
