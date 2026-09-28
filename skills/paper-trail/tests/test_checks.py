@@ -282,3 +282,42 @@ class ExitCodes(unittest.TestCase):
             )
 
             self.assertEqual(check.main(["--root", name]), 0)
+
+
+class PathsInProposals(unittest.TestCase):
+    def test_a_plan_may_name_files_it_has_not_created_yet(self):
+        """A plan is a dated proposal: naming a file it intends to write
+        is its job. Asking it whether that file exists today turns the
+        check into noise, which is how a check gets turned off."""
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(
+                Path(name),
+                extra={
+                    "docs/plans/2026-01-01-a-plan.md": "Create `src/thing/new.py` for it.\n",
+                    "docs/specs/a-design.md": "It will live at `src/thing/new.py`.\n",
+                },
+            )
+
+            self.assertEqual(_checks.paths_exist(config), [])
+
+    def test_a_decision_naming_a_file_that_moved_is_still_a_finding(self):
+        """A decision describes what is, not what someone intends."""
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(
+                Path(name), decisions=[("0001", "A thing", "it lives in `src/thing/gone.py`")]
+            )
+
+            self.assertEqual(len(_checks.paths_exist(config)), 1)
+
+
+class AdrComments(unittest.TestCase):
+    def test_a_trailing_comment_is_not_part_of_the_path(self):
+        """Real ADRs carry them: `- docs/adr/adr_018.md  # why`. Reading
+        the comment as part of the path reports a file nobody named."""
+        with TemporaryDirectory() as name:
+            path = Path(name) / "adr_017.md"
+            path.write_text(
+                "---\nrelated:\n  - docs/adr/adr_018.md  # and why it matters\n---\n"
+            )
+
+            self.assertEqual(_docs.adr_relations(path), ("docs/adr/adr_018.md",))

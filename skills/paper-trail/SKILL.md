@@ -50,6 +50,15 @@ rather than written: a status in two places is two places to be wrong.
 Where those run is the adopting repo's business. This skill names no
 build system, no target and no hook.
 
+## What a document is asked
+
+A decision and an investigation describe what is, so a backticked path
+in one has to name a real file. A spec and a plan are dated proposals:
+naming a file they intend to write is their job, and holding them to the
+present would report hundreds of things nobody got wrong. Links are
+checked everywhere, because a link that does not resolve is broken
+whenever it was written.
+
 ## What the checks cannot do
 
 Nothing here finds an investigation that was never opened. The checks

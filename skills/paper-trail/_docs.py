@@ -144,7 +144,10 @@ def adr_relations(path: Path) -> tuple[str, ...]:
             item = line.strip()
             if not item.startswith("- "):
                 raise PaperTrailError(f"{path}: cannot read {item!r} under related:")
-            related.append(item[2:].strip())
+            # A trailing comment is not part of the path: real ADRs
+            # carry them, and reading one would report a file nobody
+            # named.
+            related.append(item[2:].split("#")[0].strip())
             continue
         collecting = False
         key, separator, value = line.partition(":")

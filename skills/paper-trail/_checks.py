@@ -133,13 +133,29 @@ def relations_exist(config: Config) -> list[Finding]:
     return findings
 
 
+def describing_now(config: Config) -> list[Path]:
+    """The documents that describe what is, rather than what is intended.
+
+    A spec and a plan are dated proposals: naming a file they mean to
+    write is their job, and asking them whether it exists today turns a
+    check into noise, which is how a check gets turned off. A decision
+    and an investigation describe the present and are held to it.
+    """
+    return sorted(
+        path
+        for directory in (config.decisions, config.investigations)
+        if directory.is_dir()
+        for path in directory.rglob("*.md")
+    )
+
+
 def paths_exist(config: Config) -> list[Finding]:
     """A backticked repo path in the record must name a real file.
 
     This is what catches prose describing code that moved.
     """
     findings = []
-    for path in markdown_files(config):
+    for path in describing_now(config):
         for claim in PATHLIKE.findall(path.read_text()):
             if "/" not in claim or claim.startswith(("./", "../")):
                 continue
