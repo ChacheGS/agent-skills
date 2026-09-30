@@ -84,6 +84,26 @@ present would report hundreds of things nobody got wrong. Links are
 checked everywhere, because a link that does not resolve is broken
 whenever it was written.
 
+## Code that cites the record
+
+An explanation earns the right to live in one place by everywhere else
+pointing at it, and a comment saying `see docs/decisions/0066` is that
+pointer. It stops being true when the decision is renumbered, superseded
+into a new file, or deleted, and nothing in the record can see that: the
+citation lives in source the checks never read.
+
+List the files that cite it and they get checked:
+
+```toml
+[paths]
+cites = ["firmware/common/src/*.c", "digital-twin/scenarios/*.robot"]
+```
+
+Empty by default. Matched by id rather than by filename, because an id is
+what a person writes and it survives the title being reworded. Only the
+id is checked, so `docs/decisions/0066` and
+`docs/decisions/0066-whatever-it-was-called.md` are both fine.
+
 ## What the checks cannot do
 
 Nothing here finds an investigation that was never opened. The checks

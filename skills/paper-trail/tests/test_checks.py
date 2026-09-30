@@ -710,3 +710,61 @@ class InvestigationsLeftOut(unittest.TestCase):
             )
 
             self.assertEqual(check.main(["--root", str(config.root)]), 0)
+
+
+class CitationsResolve(unittest.TestCase):
+    def repo(self, root, source, *, cites=("src/*.c",)):
+        config = fixtures.repo(
+            root, decisions=[("0001", "A thing", "body")], cites=cites
+        )
+        (root / "src").mkdir(parents=True, exist_ok=True)
+        (root / "src" / "a.c").write_text(source)
+        return config
+
+    def test_a_citation_of_a_real_decision_is_clean(self):
+        with TemporaryDirectory() as name:
+            config = self.repo(Path(name), "/* see docs/decisions/0001 */\n")
+
+            self.assertEqual(_checks.citations_resolve(config), [])
+
+    def test_a_citation_of_a_decision_that_does_not_exist_is_a_finding(self):
+        with TemporaryDirectory() as name:
+            config = self.repo(Path(name), "/* see docs/decisions/0404 */\n")
+
+            findings = _checks.citations_resolve(config)
+
+            self.assertEqual(len(findings), 1)
+            self.assertIn("docs/decisions/0404", findings[0].what)
+            self.assertIn("a.c", findings[0].where)
+
+    def test_nothing_is_scanned_without_the_knob(self):
+        with TemporaryDirectory() as name:
+            config = self.repo(Path(name), "/* see docs/decisions/0404 */\n", cites=None)
+
+            self.assertEqual(_checks.citations_resolve(config), [])
+
+    def test_the_same_dangling_citation_twice_is_one_finding(self):
+        with TemporaryDirectory() as name:
+            config = self.repo(
+                Path(name), "/* docs/decisions/0404 */\n/* docs/decisions/0404 */\n"
+            )
+
+            self.assertEqual(len(_checks.citations_resolve(config)), 1)
+
+    def test_trailing_punctuation_does_not_break_the_id(self):
+        with TemporaryDirectory() as name:
+            config = self.repo(Path(name), "/* see docs/decisions/0001. */\n")
+
+            self.assertEqual(_checks.citations_resolve(config), [])
+
+    def test_an_investigation_is_cited_the_same_way(self):
+        with TemporaryDirectory() as name:
+            config = self.repo(Path(name), "/* see docs/investigations/0009 */\n")
+            (config.investigations / "0002-a-hunt.md").write_text(
+                INVESTIGATION.format(id="0002", title="a hunt", extra="")
+            )
+
+            findings = _checks.citations_resolve(config)
+
+            self.assertEqual(len(findings), 1)
+            self.assertIn("docs/investigations/0009", findings[0].what)

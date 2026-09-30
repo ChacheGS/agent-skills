@@ -465,6 +465,65 @@ def stale_investigations(config: Config) -> tuple[list[Finding], str | None]:
     return findings, None
 
 
+def _cited_ids(config: Config) -> dict[str, set[str]]:
+    """The ids that exist, by the directory a citation would name."""
+    ids = {}
+    for directory, found in (
+        (config.decisions, [item.id for item in readable(config)[0]]),
+        (config.investigations, [item.id for item in readable_investigations(config)[0]]),
+    ):
+        try:
+            where = directory.relative_to(config.root).as_posix()
+        except ValueError:
+            continue
+        ids[where] = set(found)
+    return ids
+
+
+def citations_resolve(config: Config) -> list[Finding]:
+    """Code that points at a decision by id still points at one.
+
+    The record's own links are checked by links_resolve; this is the
+    other direction, and the one that rots unwatched. A comment saying
+    "see docs/decisions/0066" is how an explanation earns the right to
+    live in exactly one place, and it stops being true the moment that
+    decision is renumbered, superseded into a new file, or deleted.
+
+    Only the globs the repo lists under paths.cites, because only it
+    knows which of its sources cite the record. Matched by id rather than
+    by filename: an id is what a person writes, and it survives a title
+    being reworded.
+    """
+    known = _cited_ids(config)
+    if not config.cites or not known:
+        return []
+
+    pattern = re.compile(
+        r"\b(" + "|".join(re.escape(where) for where in sorted(known)) + r")/(\d{4})"
+    )
+    findings = []
+    for glob in config.cites:
+        for path in sorted(config.root.glob(glob)):
+            if not path.is_file():
+                continue
+            try:
+                text = path.read_text(encoding="utf-8-sig", errors="replace")
+            except OSError as broken:
+                findings.append(
+                    Finding(where=_where(path, config), what=f"cannot be read: {broken}")
+                )
+                continue
+            for where, cited in dict.fromkeys(pattern.findall(text)):
+                if cited not in known[where]:
+                    findings.append(
+                        Finding(
+                            where=_where(path, config),
+                            what=f"cites {where}/{cited}, which does not exist",
+                        )
+                    )
+    return findings
+
+
 def investigations_left_out(config: Config) -> list[Finding]:
     """Investigations with no frontmatter, named rather than skipped quietly.
 

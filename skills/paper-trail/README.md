@@ -33,6 +33,11 @@ under `[paths]` is required, and an unknown one is refused rather than
 ignored, because a typo would leave the real key at its default and
 check nothing.
 
+One optional key: `cites`, a list of globs naming files outside the
+record that point at a decision by id, as a code comment saying
+`see docs/decisions/0066` does. Those citations are then checked to
+still name something. Empty by default.
+
 ## 3. Run the checks wherever your repo runs checks
 
 ```

@@ -21,7 +21,7 @@ plan = []
 """
 
 
-def repo(root: Path, *, decisions=(), extra=None) -> _config.Config:
+def repo(root: Path, *, decisions=(), extra=None, cites=None) -> _config.Config:
     """A configured repo with the directories the checks walk."""
     for name in ("decisions", "investigations", "adr", "specs", "plans"):
         (root / "docs" / name).mkdir(parents=True, exist_ok=True)
@@ -42,5 +42,6 @@ def repo(root: Path, *, decisions=(), extra=None) -> _config.Config:
         'adr = "docs/adr"\n'
         'specs = "docs/specs"\n'
         'plans = "docs/plans"\n'
+        + ("cites = %r\n" % (list(cites),) if cites is not None else "")
     )
     return _config.load(root)

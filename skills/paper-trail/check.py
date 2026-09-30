@@ -37,6 +37,7 @@ CHECKS = (
     _checks.paths_exist,
     _checks.conclusions_written,
     _checks.answered_investigations,
+    _checks.citations_resolve,
 )
 
 

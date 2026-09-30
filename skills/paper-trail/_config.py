@@ -13,6 +13,11 @@ CONFIG_NAME = ".paper-trail.toml"
 
 PATH_KEYS = ("decisions", "investigations", "index", "adr", "specs", "plans")
 
+# Globs, not a path, and optional: the files outside the record that cite
+# a decision by id. Empty by default, because only the adopting repo
+# knows which of its sources point back at the record.
+OPTIONAL_PATH_KEYS = ("cites",)
+
 DEFAULT_INVESTIGATION_DAYS = 14
 
 
@@ -38,6 +43,7 @@ class Config:
     specs: Path
     plans: Path
     investigation_days: int
+    cites: tuple[str, ...]
 
 
 def load(root: Path) -> Config:
@@ -73,14 +79,22 @@ def load(root: Path) -> Config:
     missing = [key for key in PATH_KEYS if key not in paths]
     if missing:
         raise PaperTrailError(f"{path} names no {', '.join(missing)} under [paths]")
-    unknown = sorted(set(paths) - set(PATH_KEYS))
+    unknown = sorted(set(paths) - set(PATH_KEYS) - set(OPTIONAL_PATH_KEYS))
     if unknown:
         # Loud rather than ignored: a typo'd key would otherwise leave the
         # real one at its default and check nothing, silently.
         raise PaperTrailError(f"{path} has unknown [paths] keys: {unknown}")
 
+    cites = paths.get("cites", [])
+    if not isinstance(cites, list) or any(not isinstance(item, str) for item in cites):
+        raise PaperTrailError(
+            f"{path}: paths.cites is {cites!r}; it is a list of globs, as "
+            f'["src/*.c", "tests/*.py"]'
+        )
+
     return Config(
         root=root,
+        cites=tuple(cites),
         mode=str(data.get("mode", "vendored")),
         skill_version=str(data.get("skill_version", "")),
         investigation_days=int(
