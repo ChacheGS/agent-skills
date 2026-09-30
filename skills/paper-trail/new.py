@@ -22,7 +22,18 @@ UNWANTED = re.compile(r"[^a-z0-9]+")
 
 
 def slug(title: str) -> str:
-    return UNWANTED.sub("-", title.lower()).strip("-")[:60]
+    """A filename from a title, cut at a word rather than through one.
+
+    The cap keeps filenames manageable; cutting at the last dash keeps
+    them guessable. A record titled "...is unproven" once became
+    "...-is-unp.md", and prose elsewhere cited the untruncated name,
+    which resolved to nothing.
+    """
+    whole = UNWANTED.sub("-", title.lower()).strip("-")
+    if len(whole) <= 60:
+        return whole
+    cut = whole[:60]
+    return (cut.rsplit("-", 1)[0] if "-" in cut else cut).strip("-")
 
 
 def next_id(existing: list[str]) -> str:

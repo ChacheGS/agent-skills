@@ -141,6 +141,46 @@ def readable(config: Config) -> tuple[list[Decision], list[Finding]]:
     return good, findings
 
 
+def readable_investigations(config: Config) -> tuple[list, list[Finding]]:
+    """The investigations that parse, and a finding for each that does not.
+
+    Same shape and same reason as readable() above: one bad file names
+    itself and the rest of the record is still checked.
+    """
+    good: list = []
+    findings: list[Finding] = []
+    if not config.investigations.is_dir():
+        return [], []
+    try:
+        listed = sorted(
+            path for path in config.investigations.iterdir() if path.suffix == ".md"
+        )
+    except OSError as broken:
+        return [], [
+            Finding(
+                where=_where(config.investigations, config),
+                what=f"cannot be read: {broken}",
+            )
+        ]
+
+    for path in listed:
+        if not _docs.read(path).startswith(_docs.FENCE):
+            # No frontmatter at all is a note somebody keeps here, not a
+            # malformed record. This check was added after the skill
+            # shipped, and an adopter's existing files are not defects.
+            # Said out loud by investigations_left_out() rather than
+            # skipped in silence, because a file nobody knows is exempt
+            # is a file nobody fixes.
+            continue
+        try:
+            good.extend(_docs.investigations_in([path]))
+        except PaperTrailError as broken:
+            findings.append(
+                Finding(where=_where(path, config), what=_without(str(broken), path))
+            )
+    return good, findings
+
+
 def _without(message: str, path: Path) -> str:
     """The message without the absolute path in front of it.
 
@@ -165,6 +205,77 @@ def closing_dates(config: Config) -> list[Finding]:
         for item in _docs.decisions(config)
         if item.status != "open" and item.closed is None
     ]
+
+
+PLACEHOLDER = "TO BE WRITTEN"
+
+
+def conclusions_written(config: Config) -> list[Finding]:
+    """The conclusion field is what the index renders, not the body.
+
+    A decision whose body says everything and whose conclusion is still
+    the template's placeholder reads, from the index, as a decision that
+    decided nothing - and the index is where somebody looks first.
+
+    Only once it has stopped being open, for the same reason closing
+    dates are: a decision written an hour ago and still being argued is
+    allowed to have nothing settled in it yet. One that closed and never
+    had its one line written is the defect.
+    """
+    return [
+        Finding(
+            where=_where(item.path, config),
+            what="is {0} and still has the template's conclusion, which is what the index shows".format(
+                item.status
+            ),
+        )
+        for item in readable(config)[0]
+        if item.status != "open" and PLACEHOLDER in item.conclusion
+    ]
+
+
+def answered_investigations(config: Config) -> list[Finding]:
+    """An investigation that finished names the decision that kept it.
+
+    An investigation is a working file: the hunt, the measurements, the
+    theories that died. The conclusion somebody needs later belongs in a
+    decision, and this is the check that says so out loud rather than
+    leaving a closed investigation looking open forever because its title
+    is still the question it was opened with.
+    """
+    known = {item.id for item in readable(config)[0]}
+    found, findings = readable_investigations(config)
+    for item in found:
+        if item.answered is None:
+            if item.decision is not None:
+                findings.append(
+                    Finding(
+                        where=_where(item.path, config),
+                        what=(
+                            f"names decision {item.decision} but nothing says when it "
+                            f"was answered"
+                        ),
+                    )
+                )
+            continue
+        if item.decision is None:
+            findings.append(
+                Finding(
+                    where=_where(item.path, config),
+                    what=(
+                        "was answered and names no decision, so its conclusion lives "
+                        "only in a file titled as an open question"
+                    ),
+                )
+            )
+        elif item.decision not in known:
+            findings.append(
+                Finding(
+                    where=_where(item.path, config),
+                    what=f"names decision {item.decision}, which does not exist",
+                )
+            )
+    return findings
 
 
 def links_resolve(config: Config) -> list[Finding]:
@@ -324,9 +435,18 @@ def stale_investigations(config: Config) -> tuple[list[Finding], str | None]:
             f"investigation staleness was not checked"
         )
 
+    # An unreadable file is readable_investigations()'s finding to make,
+    # not a reason to skip staleness for every other investigation.
+    answered = {
+        item.path for item in readable_investigations(config)[0] if item.answered is not None
+    }
+
     findings = []
     now = datetime.now(timezone.utc)
     for path in sorted(config.investigations.glob("*.md")):
+        if path in answered:
+            # Finished on purpose, and kept for its refuted list.
+            continue
         touched = _last_touched(config.root, path)
         if touched is None:
             # Never committed, so it is being written right now.
@@ -343,6 +463,37 @@ def stale_investigations(config: Config) -> tuple[list[Finding], str | None]:
                 )
             )
     return findings, None
+
+
+def investigations_left_out(config: Config) -> list[Finding]:
+    """Investigations with no frontmatter, named rather than skipped quietly.
+
+    A note, not a finding: these are ordinary in a record older than the
+    fields, and stopping a build over one would be the skill getting in
+    the way of the work it exists to support. Saying so is what turns an
+    exemption somebody does not know about into one they can act on.
+    """
+    if not config.investigations.is_dir():
+        return []
+    try:
+        listed = sorted(
+            path for path in config.investigations.iterdir() if path.suffix == ".md"
+        )
+    except OSError:
+        # readable_investigations() reports this as a finding; a note
+        # saying the same thing twice helps nobody.
+        return []
+    return [
+        Finding(
+            where=_where(path, config),
+            what=(
+                "has no +++ frontmatter, so it is read as a note and left out of the "
+                "investigation checks. Add id, title and opened to include it."
+            ),
+        )
+        for path in listed
+        if not _docs.read(path).startswith(_docs.FENCE)
+    ]
 
 
 def stamp_is_current(config: Config, version: str) -> list[Finding]:

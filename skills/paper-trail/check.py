@@ -35,6 +35,8 @@ CHECKS = (
     _checks.links_resolve,
     _checks.relations_exist,
     _checks.paths_exist,
+    _checks.conclusions_written,
+    _checks.answered_investigations,
 )
 
 
@@ -68,8 +70,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"skipped: {skipped}")
     for finding in findings:
         print(finding)
-    # After the findings and never counted: falling behind the skill is
-    # news, not a defect in the record.
+    # After the findings and never counted: falling behind the skill, or
+    # keeping a file the checks do not read, is news rather than a defect
+    # in the record.
+    for note in _checks.investigations_left_out(config):
+        print(note)
     for note in _checks.stamp_is_current(config, version()):
         print(note)
 

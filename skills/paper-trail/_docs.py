@@ -153,6 +153,82 @@ def _decision(*, path: Path, fields: dict, body: str) -> Decision:
     )
 
 
+@dataclass(frozen=True)
+class Investigation:
+    id: str
+    title: str
+    opened: date
+    answered: date | None
+    decision: str | None
+    path: Path
+    body: str
+
+
+def investigations(config: Config) -> list[Investigation]:
+    """Every investigation, by id.
+
+    Read far more loosely than a decision. An investigation is a working
+    file, edited while something is still being chased, and refusing to
+    parse one mid-hunt would make the checks the thing in the way. Only
+    `answered` and `decision` are read beyond the header a template
+    writes, and both are optional.
+    """
+    if not config.investigations.is_dir():
+        return []
+
+    listed = sorted(item for item in config.investigations.iterdir() if item.suffix == ".md")
+    return investigations_in(listed)
+
+
+def investigations_in(listed: list[Path]) -> list[Investigation]:
+    """The investigations in exactly these files, by id."""
+    found: dict[str, Investigation] = {}
+    for path in listed:
+        named = NAMED.match(path.stem)
+        if named is None:
+            raise PaperTrailError(
+                f"{path.name} is not named NNNN-slug.md, so nothing can link to it by id"
+            )
+        try:
+            fields, body = frontmatter(read(path))
+        except PaperTrailError as broken:
+            raise PaperTrailError(f"{path}: {broken}") from None
+
+        for required in ("id", "title", "opened"):
+            if required not in fields:
+                raise PaperTrailError(f"{path}: frontmatter has no {required}")
+        for when in ("opened", "answered"):
+            given = fields.get(when)
+            if given is not None and not isinstance(given, date):
+                raise PaperTrailError(
+                    f"{path}: {when} is {given!r}, which is not a date. TOML writes one "
+                    f"bare, as 2026-09-28, and quoting it makes it a string nothing can "
+                    f"compare."
+                )
+        item = Investigation(
+            id=str(fields["id"]),
+            title=str(fields["title"]),
+            opened=fields["opened"],
+            answered=fields.get("answered"),
+            decision=(str(fields["decision"]) if fields.get("decision") else None),
+            path=path,
+            body=body,
+        )
+        if named.group(1) != item.id:
+            raise PaperTrailError(
+                f"{path.name} starts with {named.group(1)} and its frontmatter says "
+                f"{item.id}. The filename is what a link resolves against."
+            )
+        seen = found.get(item.id)
+        if seen is not None:
+            raise PaperTrailError(
+                f"{seen.path.name} and {path.name} share the id {item.id}, so a link "
+                f"to it points at whichever sorted first"
+            )
+        found[item.id] = item
+    return [found[key] for key in sorted(found)]
+
+
 def adr_relations(path: Path) -> tuple[str, ...]:
     """What an ADR's YAML frontmatter says it is related to.
 

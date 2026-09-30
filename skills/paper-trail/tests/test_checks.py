@@ -7,6 +7,7 @@ from tempfile import TemporaryDirectory
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import _checks
+import check
 import _config
 import _docs
 import _render
@@ -566,3 +567,146 @@ class RecordOutsideGit(unittest.TestCase):
 
             self.assertIsNone(skipped)
             self.assertEqual(len(findings), 1)
+
+
+INVESTIGATION = """+++
+id = "{id}"
+title = "{title}"
+opened = 2026-09-25
+{extra}+++
+
+# {title}
+"""
+
+
+class AnsweredInvestigations(unittest.TestCase):
+    def one(self, root, *, extra=""):
+        config = fixtures.repo(root, decisions=[("0001", "A thing", "body")])
+        (config.investigations / "0002-a-hunt.md").write_text(
+            INVESTIGATION.format(id="0002", title="a hunt", extra=extra)
+        )
+        return config
+
+    def test_an_open_investigation_owes_nothing(self):
+        with TemporaryDirectory() as name:
+            config = self.one(Path(name))
+
+            self.assertEqual(_checks.answered_investigations(config), [])
+
+    def test_an_answered_investigation_naming_no_decision_is_a_finding(self):
+        with TemporaryDirectory() as name:
+            config = self.one(Path(name), extra="answered = 2026-09-29\n")
+
+            findings = _checks.answered_investigations(config)
+
+            self.assertEqual(len(findings), 1)
+            self.assertIn("names no decision", findings[0].what)
+
+    def test_an_answered_investigation_naming_a_real_decision_is_clean(self):
+        with TemporaryDirectory() as name:
+            config = self.one(
+                Path(name), extra='answered = 2026-09-29\ndecision = "0001"\n'
+            )
+
+            self.assertEqual(_checks.answered_investigations(config), [])
+
+    def test_a_decision_that_does_not_exist_is_a_finding(self):
+        with TemporaryDirectory() as name:
+            config = self.one(
+                Path(name), extra='answered = 2026-09-29\ndecision = "0404"\n'
+            )
+
+            findings = _checks.answered_investigations(config)
+
+            self.assertEqual(len(findings), 1)
+            self.assertIn("does not exist", findings[0].what)
+
+    def test_a_decision_without_an_answered_date_is_a_finding(self):
+        with TemporaryDirectory() as name:
+            config = self.one(Path(name), extra='decision = "0001"\n')
+
+            findings = _checks.answered_investigations(config)
+
+            self.assertEqual(len(findings), 1)
+            self.assertIn("when it was answered", findings[0].what)
+
+    def test_a_file_with_no_frontmatter_is_left_alone(self):
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(Path(name))
+            (config.investigations / "0002-a-note.md").write_text("# just a note\n")
+
+            self.assertEqual(_checks.answered_investigations(config), [])
+
+    def test_an_answered_investigation_is_never_stale(self):
+        with TemporaryDirectory() as name:
+            config = self.one(
+                Path(name), extra='answered = 2026-09-29\ndecision = "0001"\n'
+            )
+            git(config.root, "init", "-q")
+            git(config.root, "add", "-A")
+            git(config.root, "commit", "-q", "-m", "first", when="2020-01-01T00:00:00")
+
+            findings, skipped = _checks.stale_investigations(config)
+
+            self.assertIsNone(skipped)
+            self.assertEqual(findings, [])
+
+
+class ConclusionsWritten(unittest.TestCase):
+    def test_an_open_decision_may_still_be_a_placeholder(self):
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(Path(name))
+            (config.decisions / "0001-a-thing.md").write_text(
+                fixtures.DECISION.format(id="0001", title="A thing", body="body").replace(
+                    '"A conclusion."', '"TO BE WRITTEN: one sentence."'
+                )
+            )
+
+            self.assertEqual(_checks.conclusions_written(config), [])
+
+    def test_a_resolved_decision_with_the_placeholder_is_a_finding(self):
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(Path(name))
+            (config.decisions / "0001-a-thing.md").write_text(
+                fixtures.DECISION.format(id="0001", title="A thing", body="body")
+                .replace('"A conclusion."', '"TO BE WRITTEN: one sentence."')
+                .replace('status = "open"', 'status = "resolved"\nclosed = 2026-09-26')
+            )
+
+            findings = _checks.conclusions_written(config)
+
+            self.assertEqual(len(findings), 1)
+            self.assertIn("template's conclusion", findings[0].what)
+
+
+class InvestigationsLeftOut(unittest.TestCase):
+    def test_a_file_with_no_frontmatter_is_named_as_left_out(self):
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(Path(name))
+            (config.investigations / "0002-a-note.md").write_text("# just a note\n")
+
+            notes = _checks.investigations_left_out(config)
+
+            self.assertEqual(len(notes), 1)
+            self.assertIn("left out", notes[0].what)
+            self.assertIn("0002-a-note.md", notes[0].where)
+
+    def test_a_file_with_frontmatter_is_not_mentioned(self):
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(Path(name))
+            (config.investigations / "0002-a-hunt.md").write_text(
+                INVESTIGATION.format(id="0002", title="a hunt", extra="")
+            )
+
+            self.assertEqual(_checks.investigations_left_out(config), [])
+
+    def test_the_note_does_not_fail_the_run(self):
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(Path(name))
+            (config.investigations / "0002-a-note.md").write_text("# just a note\n")
+            config.index.parent.mkdir(parents=True, exist_ok=True)
+            config.index.write_text(
+                _render.render([], root=config.root, index=config.index)
+            )
+
+            self.assertEqual(check.main(["--root", str(config.root)]), 0)
