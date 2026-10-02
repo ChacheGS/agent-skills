@@ -21,7 +21,7 @@ plan = []
 """
 
 
-def repo(root: Path, *, decisions=(), extra=None, cites=None, investigations_index=None, debt=None, debt_index=None) -> _config.Config:
+def repo(root: Path, *, decisions=(), extra=None, cites=None, investigations_index=None, debt=None, debt_index=None, scripts=None) -> _config.Config:
     """A configured repo with the directories the checks walk."""
     for name in ("decisions", "investigations", "adr", "specs", "plans"):
         (root / "docs" / name).mkdir(parents=True, exist_ok=True)
@@ -43,6 +43,7 @@ def repo(root: Path, *, decisions=(), extra=None, cites=None, investigations_ind
         'specs = "docs/specs"\n'
         'plans = "docs/plans"\n'
         + ("cites = %r\n" % (list(cites),) if cites is not None else "")
+        + (f'scripts = "{scripts}"\n' if scripts else "")
         + (f'debt = "{debt}"\n' if debt else "")
         + (f'debt_index = "{debt_index}"\n' if debt_index else "")
         + (f'investigations_index = "{investigations_index}"\n' if investigations_index else "")

@@ -13,7 +13,8 @@ from pathlib import Path
 import _checks
 import _config
 
-VERSION_FILE = Path(__file__).resolve().parent / "VERSION"
+HERE = Path(__file__).resolve().parent
+VERSION_FILE = HERE / "VERSION"
 
 
 def version() -> str:
@@ -80,6 +81,8 @@ def main(argv: list[str] | None = None) -> int:
     for note in _checks.investigations_left_out(config):
         print(note)
     for note in _checks.stamp_is_current(config, version()):
+        print(note)
+    for note in _checks.running_the_vendored_copy(config, HERE):
         print(note)
 
     if findings:

@@ -722,6 +722,27 @@ def investigations_left_out(config: Config) -> list[Finding]:
     ]
 
 
+def running_the_vendored_copy(config: Config, here: Path) -> list[Finding]:
+    """Whether this run is the copy the repo says it vendors.
+
+    A newer installed skill and an older vendored copy can disagree about
+    the same record, so the agent's run passes and CI fails. Reported
+    rather than failed, like the stamp: the record is not wrong.
+    See docs/decisions/0007.
+    """
+    if config.scripts is None or config.scripts == here.resolve():
+        return []
+    return [
+        Finding(
+            where=".paper-trail.toml",
+            what=(
+                f"says the scripts are vendored at {_where(config.scripts, config)}; this run "
+                f"used {here}. Run the vendored copy so the result matches CI."
+            ),
+        )
+    ]
+
+
 def stamp_is_current(config: Config, version: str) -> list[Finding]:
     """Whether the recorded version and the copied one still agree.
 

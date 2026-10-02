@@ -16,7 +16,7 @@ PATH_KEYS = ("decisions", "investigations", "index", "adr", "specs", "plans")
 # Globs, not a path, and optional: the files outside the record that cite
 # a decision by id. Empty by default, because only the adopting repo
 # knows which of its sources point back at the record.
-OPTIONAL_PATH_KEYS = ("cites", "investigations_index", "debt", "debt_index")
+OPTIONAL_PATH_KEYS = ("cites", "investigations_index", "debt", "debt_index", "scripts")
 
 DEFAULT_INVESTIGATION_DAYS = 14
 
@@ -47,6 +47,7 @@ class Config:
     investigations_index: Path | None
     debt: Path | None
     debt_index: Path | None
+    scripts: Path | None
 
 
 def load(root: Path) -> Config:
@@ -96,7 +97,7 @@ def load(root: Path) -> Config:
         )
 
     optional = {}
-    for key in ("investigations_index", "debt", "debt_index"):
+    for key in ("investigations_index", "debt", "debt_index", "scripts"):
         given = paths.get(key)
         if given is not None and not isinstance(given, str):
             raise PaperTrailError(
@@ -104,6 +105,12 @@ def load(root: Path) -> Config:
                 f'as "docs/{key}"'
             )
         optional[key] = (root / given).resolve() if given else None
+
+    if optional["scripts"] is not None and data.get("mode", "vendored") != "vendored":
+        raise PaperTrailError(
+            f"{path}: paths.scripts says where the vendored copy lives, and mode is "
+            f"{data['mode']!r}. A referenced copy is not in this repo."
+        )
 
     return Config(
         root=root,

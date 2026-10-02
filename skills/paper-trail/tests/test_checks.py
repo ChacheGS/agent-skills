@@ -270,6 +270,32 @@ class SectionsWritten(unittest.TestCase):
             self.assertEqual(len(_checks.sections_written(self.repo(Path(name), body))), 1)
 
 
+class RunningTheVendoredCopy(unittest.TestCase):
+    def test_running_from_elsewhere_is_a_note(self):
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(Path(name), scripts="tools/paper-trail")
+
+            notes = _checks.running_the_vendored_copy(config, Path("/opt/skill"))
+
+            self.assertEqual(len(notes), 1)
+            self.assertIn("tools/paper-trail", notes[0].what)
+            self.assertIn("/opt/skill", notes[0].what)
+
+    def test_running_the_vendored_copy_is_silent(self):
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(Path(name), scripts="tools/paper-trail")
+
+            self.assertEqual(
+                _checks.running_the_vendored_copy(config, config.scripts), []
+            )
+
+    def test_no_scripts_key_is_silent(self):
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(Path(name))
+
+            self.assertEqual(_checks.running_the_vendored_copy(config, Path("/anywhere")), [])
+
+
 class StubsLeft(unittest.TestCase):
     def one(self, root, *, status="open", body="TO BE WRITTEN: what was rejected."):
         config = fixtures.repo(root, decisions=[("0001", "A thing", body)])

@@ -120,6 +120,20 @@ class Loading(unittest.TestCase):
             with self.assertRaises(_config.PaperTrailError):
                 _config.load(root)
 
+    def test_scripts_with_a_referenced_mode_is_refused(self):
+        with TemporaryDirectory() as name:
+            root = Path(name)
+            (root / ".paper-trail.toml").write_text(
+                'mode = "referenced"\n[paths]\nscripts = "tools/paper-trail"\n'
+                + "".join(f'{key} = "docs/{key}"\n' for key in _config.PATH_KEYS),
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(_config.PaperTrailError) as refusal:
+                _config.load(root)
+
+            self.assertIn("referenced", str(refusal.exception))
+
     def test_debt_is_optional_and_absent_means_none(self):
         with TemporaryDirectory() as name:
             config = fixtures.repo(Path(name))
