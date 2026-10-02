@@ -49,8 +49,9 @@ The template leaves a `TO BE WRITTEN` line under "What was rejected".
 Not every decision rejects something: fill it in, or delete the section.
 A closed decision that keeps the stub is reported.
 
-To supersede: set `status = "superseded"`, `closed`, and `superseded_by`,
-then run `index.py`. Leave the old file where it is. Its number is still
+To supersede, run `new.py supersede OLD "New title"`, then `index.py`.
+It sets `status`, `closed` and `superseded_by` on the old file for you;
+by hand, those are the three fields. Leave the old file where it is. Its number is still
 an address. Do not write "replaces" in the new file: the index derives it
 from `superseded_by`, so the trail reads both ways from one copy.
 
@@ -80,6 +81,10 @@ record lives.
 - `python3 <here>/new.py --root . investigation "A symptom"` starts one.
 - `python3 <here>/new.py --root . debt "A shortcut"` starts one, if the
   config names a `debt` directory.
+- `python3 <here>/new.py --root . supersede 0004 "The new title"` starts the
+  replacing decision and marks 0004 superseded.
+- `python3 <here>/new.py --root . close investigation 0002 --decision 0007`
+  marks an investigation answered. `close debt 0003` marks debt resolved.
 - `python3 <here>/new.py --root . --config` writes a starting config.
 
 Where those run is the adopting repo's business. This skill names no
@@ -157,7 +162,8 @@ An investigation is a working file: the symptom, the measurements, and
 the theories that died. When it is answered, the conclusion somebody
 needs later belongs in a decision, and this file keeps the hunt.
 
-Say so in its frontmatter:
+Run `new.py close investigation ID --decision NNNN`, or say so in its
+frontmatter:
 
 ```toml
 answered = 2026-09-29
