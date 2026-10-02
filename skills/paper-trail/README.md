@@ -89,6 +89,10 @@ like, and prove it with the assertion rather than by reading the diff:
 - every body is byte-identical to its source cell, modulo leading and
   trailing whitespace.
 
+Give each body a "What was decided" and a "Why" section: a closed
+decision without them is reported, and a split table has neither unless
+you write them.
+
 Escape any pipes inside code spans before you start. A table row
 carrying a bare `|` parses with extra columns, and a splitter that tries
 to recover from that is how prose gets eaten silently.

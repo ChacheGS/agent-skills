@@ -41,6 +41,10 @@ someone who will not open the file. `new.py` starts it as `TO BE
 WRITTEN`, and a decision that has closed with that still in place is
 reported.
 
+A closed decision needs a "What was decided" and a "Why" section with
+something in them. Headings are matched by their first words, so
+"Why this way" counts. Open decisions are exempt.
+
 The template leaves a `TO BE WRITTEN` line under "What was rejected".
 Not every decision rejects something: fill it in, or delete the section.
 A closed decision that keeps the stub is reported.
@@ -87,7 +91,8 @@ hand-edit to it is a finding.
 - An index differs from what the files say.
 - A decision or investigation that does not parse, or has a bad field.
 - A decision that is not open and has no `closed` date, still has the
-  placeholder conclusion, or still has a `TO BE WRITTEN` line in its body.
+  placeholder conclusion, has no "What was decided" or "Why" section
+  (or an empty one), or still has a `TO BE WRITTEN` line in its body.
 - A link, an `adr`/`spec`/`plan` entry, or a `superseded_by` id that points
   at nothing.
 - A backticked repo path in a decision or investigation that is not in
