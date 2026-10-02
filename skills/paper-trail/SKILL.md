@@ -5,13 +5,14 @@ description: Use when a decision gets made, when a hunt spans more than one meas
 
 # paper-trail
 
-A project's written record is four kinds of thing, and the only question
+A project's written record is five kinds of thing, and the only question
 that matters is which one you have.
 
 | You have | It goes in | It leaves when |
 |---|---|---|
 | A conclusion somebody will need again | a decision file | never; it is superseded, not deleted |
 | A hunt spanning more than one measurement | an investigation file | it concludes, becoming a decision |
+| A shortcut taken on purpose, with a cost | a debt file | it is paid back, which sets `resolved`; the file stays |
 | A decision that named and rejected a real alternative | an ADR, cited by the decision | never |
 | The depth behind a change | a spec, cited by the decision | never |
 
@@ -66,6 +67,8 @@ repo whose `.paper-trail.toml` says where the record lives.
   investigations index if the config names one.
 - `python3 <here>/new.py --root . decision "A title"` starts one.
 - `python3 <here>/new.py --root . investigation "A symptom"` starts one.
+- `python3 <here>/new.py --root . debt "A shortcut"` starts one, if the
+  config names a `debt` directory.
 - `python3 <here>/new.py --root . --config` writes a starting config.
 
 Where those run is the adopting repo's business. This skill names no
@@ -89,6 +92,9 @@ hand-edit to it is a finding.
   (default 14, set under `[thresholds]`), unless it is answered.
 - An investigation that is answered but names no decision, or the
   reverse.
+- A debt entry that does not parse, has no `repay_when`, is still open
+  with the template's `repay_when`, or names a decision that does not
+  exist.
 - A cited decision id that no longer exists (see "Code that cites the
   record").
 
@@ -104,6 +110,34 @@ of every investigation: the open ones with the first line of their
 `## Next` section, and the answered ones with the decision that kept
 the conclusion. Read it first when picking up a repo, to see what is in
 flight. Absent, no such page is written or checked.
+
+## Debt
+
+A shortcut taken on purpose is not a defect to fix quietly. It is a
+choice with a cost, and the record keeps it so nobody builds on it by
+accident and so somebody can tell when it is due.
+
+```toml
+id = "0003"
+title = "One global lock"
+opened = 2026-10-02
+repay_when = "a second writer exists"   # a condition, never a date
+resolved = 2026-11-10                   # once paid; the file stays
+decision = "0012"                       # optional: the decision that accepted it
+```
+
+`repay_when` is the field that matters. Asked "what do we do next", read
+the open entries in the debt index: it states how many are open and each
+one's condition, so judge which are due now rather than listing them all.
+An entry that cannot name a condition is a wish and does not belong here.
+
+Set `debt` and `debt_index` under `[paths]`. Absent, the repo keeps none
+and nothing is written or checked. The index cannot sit inside `debt`,
+where every file must be an entry. Code can cite an entry by id
+(`docs/debt/0003`) and is checked like any other citation.
+
+Nothing reports debt as stale. It is meant to sit until its condition
+holds, and an age would only teach people to ignore the report.
 
 ## Closing an investigation
 

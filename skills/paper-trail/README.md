@@ -29,13 +29,18 @@ The tests do not need copying. They belong to this repo's own gate.
 
 `python3 new.py --root /path/to/your/repo --config` writes a starting
 `.paper-trail.toml`. Edit the paths to match your layout; every key
-under `[paths]` is required except those two, and an unknown one is
+under `[paths]` is required except those four, and an unknown one is
 refused rather than ignored, because a typo would leave the real key
 at its default and check nothing.
 
-Two keys are optional. `investigations_index` is where `index.py` writes
+Four keys are optional. `investigations_index` is where `index.py` writes
 a page listing every investigation, open or answered. Absent, no such
 page is written or checked.
+
+`debt` and `debt_index` turn on a third kind of record, shortcuts taken
+on purpose, each with a `repay_when` condition. `debt` is the directory
+and `debt_index` the generated page, which cannot sit inside it. Absent,
+this repo keeps none and nothing is written or checked.
 
 `cites` is a list of globs naming files outside the
 record that point at a decision by id, as a code comment saying
