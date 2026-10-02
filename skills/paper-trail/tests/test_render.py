@@ -76,3 +76,49 @@ class Rendering(unittest.TestCase):
         text = _render.render([], **WHERE)
 
         self.assertIn("Nothing open", text)
+
+
+def investigation(**overrides):
+    fields = dict(
+        id="0003",
+        title="Why the bus stalls",
+        opened=date(2026, 9, 25),
+        answered=None,
+        decision=None,
+        path=Path("/repo/docs/investigations/0003-why-the-bus-stalls.md"),
+        body="## Symptom\n\nIt stalls.\n\n## Next\n\nProbe the clock line.\n\nThen the data line.\n",
+    )
+    fields.update(overrides)
+    return _docs.Investigation(**fields)
+
+
+LISTING = Path("/repo/docs/INVESTIGATIONS.md")
+
+
+class RenderingInvestigations(unittest.TestCase):
+    def test_an_open_one_shows_where_the_hunt_stands(self):
+        text = _render.render_investigations([investigation()], [], index=LISTING)
+
+        self.assertIn("| Probe the clock line. |", text)
+        self.assertNotIn("Then the data line", text)
+
+    def test_an_answered_one_links_the_decision_that_kept_its_conclusion(self):
+        text = _render.render_investigations(
+            [investigation(answered=date(2026, 10, 1), decision="0042")],
+            [decision()],
+            index=LISTING,
+        )
+
+        self.assertIn("(decisions/0042-a-node-says-what-it-is-once.md)", text)
+        self.assertLess(text.index("## Open"), text.index("## Answered"))
+
+    def test_a_file_with_no_next_section_still_renders(self):
+        text = _render.render_investigations([investigation(body="just notes")], [], index=LISTING)
+
+        self.assertIn("[Why the bus stalls]", text)
+
+    def test_an_empty_record_still_renders(self):
+        text = _render.render_investigations([], [], index=LISTING)
+
+        self.assertIn("Nothing open", text)
+        self.assertIn("Nothing answered yet", text)

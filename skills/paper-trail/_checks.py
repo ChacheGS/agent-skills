@@ -110,9 +110,32 @@ def index_is_current(config: Config) -> list[Finding]:
     """The whole answer to a status two places would have to agree on."""
     wanted = _render.render(_docs.decisions(config), root=config.root, index=config.index)
     found = _docs.read(config.index) if config.index.is_file() else ""
-    if found == wanted:
-        return []
-    return [Finding(where=_where(config.index, config), what="is not what the decisions say. Run index.py.")]
+    findings = []
+    if found != wanted:
+        findings.append(
+            Finding(where=_where(config.index, config), what="is not what the decisions say. Run index.py.")
+        )
+    if config.investigations_index is not None:
+        # Unparseable investigations are answered_investigations()'s
+        # findings; reporting them here too would say each twice.
+        wanted = _render.render_investigations(
+            readable_investigations(config)[0],
+            _docs.decisions(config),
+            index=config.investigations_index,
+        )
+        found = (
+            _docs.read(config.investigations_index)
+            if config.investigations_index.is_file()
+            else ""
+        )
+        if found != wanted:
+            findings.append(
+                Finding(
+                    where=_where(config.investigations_index, config),
+                    what="is not what the investigations say. Run index.py.",
+                )
+            )
+    return findings
 
 
 def readable(config: Config) -> tuple[list[Decision], list[Finding]]:

@@ -16,7 +16,7 @@ PATH_KEYS = ("decisions", "investigations", "index", "adr", "specs", "plans")
 # Globs, not a path, and optional: the files outside the record that cite
 # a decision by id. Empty by default, because only the adopting repo
 # knows which of its sources point back at the record.
-OPTIONAL_PATH_KEYS = ("cites",)
+OPTIONAL_PATH_KEYS = ("cites", "investigations_index")
 
 DEFAULT_INVESTIGATION_DAYS = 14
 
@@ -44,6 +44,7 @@ class Config:
     plans: Path
     investigation_days: int
     cites: tuple[str, ...]
+    investigations_index: Path | None
 
 
 def load(root: Path) -> Config:
@@ -92,9 +93,17 @@ def load(root: Path) -> Config:
             f'["src/*.c", "tests/*.py"]'
         )
 
+    listing = paths.get("investigations_index")
+    if listing is not None and not isinstance(listing, str):
+        raise PaperTrailError(
+            f"{path}: paths.investigations_index is {listing!r}; it is a path, "
+            f'as "docs/INVESTIGATIONS.md"'
+        )
+
     return Config(
         root=root,
         cites=tuple(cites),
+        investigations_index=(root / listing).resolve() if listing else None,
         mode=str(data.get("mode", "vendored")),
         skill_version=str(data.get("skill_version", "")),
         investigation_days=int(

@@ -49,6 +49,43 @@ class IndexIsCurrent(unittest.TestCase):
             self.assertEqual(_checks.index_is_current(config), [])
 
 
+class InvestigationsIndexIsCurrent(unittest.TestCase):
+    def repo(self, root):
+        config = fixtures.repo(root, investigations_index="docs/INVESTIGATIONS.md")
+        (config.investigations / "0001-a-hunt.md").write_text(
+            "+++\nid = \"0001\"\ntitle = \"a hunt\"\nopened = 2026-09-25\n+++\n\n## Next\n\nLook.\n"
+        )
+        return config
+
+    def test_a_missing_listing_is_a_finding(self):
+        with TemporaryDirectory() as name:
+            config = self.repo(Path(name))
+
+            findings = _checks.index_is_current(config)
+
+            self.assertEqual(len(findings), 2)
+            self.assertIn("INVESTIGATIONS.md", findings[-1].where)
+
+    def test_a_regenerated_listing_is_clean(self):
+        import index
+
+        with TemporaryDirectory() as name:
+            config = self.repo(Path(name))
+            self.assertEqual(index.main(["--root", name]), 0)
+
+            self.assertEqual(_checks.index_is_current(config), [])
+
+    def test_no_listing_configured_means_nothing_is_checked(self):
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(Path(name))
+            config.index.parent.mkdir(parents=True, exist_ok=True)
+            config.index.write_text(
+                _render.render([], root=config.root, index=config.index)
+            )
+
+            self.assertEqual(_checks.index_is_current(config), [])
+
+
 class LinksResolve(unittest.TestCase):
     def test_a_link_to_a_file_that_is_not_there_is_a_finding(self):
         with TemporaryDirectory() as name:

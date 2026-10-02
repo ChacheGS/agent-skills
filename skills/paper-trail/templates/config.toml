@@ -11,6 +11,9 @@ index = "docs/DECISIONS.md"
 adr = "docs/adr"
 specs = "docs/specs"
 plans = "docs/plans"
+# Optional. Where index.py writes the list of open and answered
+# investigations. Absent means no such page is written or checked.
+# investigations_index = "docs/INVESTIGATIONS.md"
 # Optional. Files outside the record that cite a decision by id, as a
 # code comment saying "see docs/decisions/0001" does. Listed here, those
 # citations are checked to still name something. Absent means nothing
