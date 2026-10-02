@@ -1,12 +1,12 @@
 # Adopting paper-trail
 
-Three scripts, no dependencies, Python 3.11 or newer. 3.11 is the floor
+Four scripts, no dependencies, Python 3.11 or newer. 3.11 is the floor
 because the config is TOML and `tomllib` arrives there: Debian 12 and
 Ubuntu 24.04 are fine, RHEL 9's system Python is 3.9 and is not.
 
 ## 1. Choose where the scripts live
 
-**Vendored**, the usual choice: copy `check.py`, `index.py`, `new.py`,
+**Vendored**, the usual choice: copy `check.py`, `index.py`, `new.py`, `status.py`,
 `_config.py`, `_docs.py`, `_checks.py`, `_render.py`, `VERSION` and
 `templates/` into your repo and commit them. Your checks then run in CI
 and for a contributor who has never installed this skill.

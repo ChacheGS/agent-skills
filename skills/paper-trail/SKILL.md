@@ -75,6 +75,9 @@ record lives.
 
 - `python3 <here>/check.py --root .` runs every check. 0 clean, 1
   findings, 2 could not run.
+- `python3 <here>/status.py --root .` shows what is open: decisions,
+  investigations with their next step, and debt with its `repay_when`.
+  Run it first when picking up a repo. It writes nothing.
 - `python3 <here>/index.py --root .` rewrites the index, and the
   investigations index if the config names one.
 - `python3 <here>/new.py --root . decision "A title"` starts one.
