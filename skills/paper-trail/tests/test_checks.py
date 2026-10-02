@@ -138,6 +138,33 @@ class RelationsExist(unittest.TestCase):
             self.assertEqual(len(findings), 1)
             self.assertIn("docs/specs/gone.md", findings[0].what)
 
+    def test_superseded_by_a_decision_that_does_not_exist_is_a_finding(self):
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(Path(name), decisions=[("0001", "A thing", "")])
+            path = config.decisions / "0001-a-thing.md"
+            path.write_text(
+                path.read_text()
+                .replace('status = "open"', 'status = "superseded"\nsuperseded_by = "0009"')
+            )
+
+            findings = _checks.relations_exist(config)
+
+            self.assertEqual(len(findings), 1)
+            self.assertIn("0009", findings[0].what)
+
+    def test_superseded_by_a_decision_that_exists_is_clean(self):
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(
+                Path(name), decisions=[("0001", "A thing", ""), ("0002", "Its heir", "")]
+            )
+            path = config.decisions / "0001-a-thing.md"
+            path.write_text(
+                path.read_text()
+                .replace('status = "open"', 'status = "superseded"\nsuperseded_by = "0002"')
+            )
+
+            self.assertEqual(_checks.relations_exist(config), [])
+
     def test_an_adr_related_to_something_missing_is_a_finding(self):
         with TemporaryDirectory() as name:
             config = fixtures.repo(

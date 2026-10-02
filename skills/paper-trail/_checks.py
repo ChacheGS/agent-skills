@@ -313,9 +313,18 @@ def links_resolve(config: Config) -> list[Finding]:
 
 
 def relations_exist(config: Config) -> list[Finding]:
-    """A decision's adr/spec/plan, and an ADR's own related list."""
+    """A decision's adr/spec/plan and superseded_by, and an ADR's own related list."""
     findings = []
-    for item in _docs.decisions(config):
+    decisions = _docs.decisions(config)
+    known = {item.id for item in decisions}
+    for item in decisions:
+        if item.superseded_by and str(item.superseded_by) not in known:
+            findings.append(
+                Finding(
+                    where=_where(item.path, config),
+                    what=f"is superseded by {item.superseded_by}, which does not exist",
+                )
+            )
         for related in item.adr + item.spec + item.plan:
             if not (config.root / related).exists():
                 findings.append(
