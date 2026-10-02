@@ -78,6 +78,71 @@ class Writing(unittest.TestCase):
 
             self.assertEqual(new.main(["--root", str(config.root), "debt", "Global lock"]), 2)
 
+    def test_supersede_marks_the_old_one_and_starts_the_new(self):
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(Path(name))
+            new.main(["--root", name, "decision", "Old way"])
+
+            self.assertEqual(new.main(["--root", name, "supersede", "0001", "New way"]), 0)
+
+            old, heir = _docs.decisions(config)
+            self.assertEqual((old.status, old.superseded_by), ("superseded", "0002"))
+            self.assertIsNotNone(old.closed)
+            self.assertEqual((heir.id, heir.title, heir.status), ("0002", "New way", "open"))
+
+    def test_supersede_keeps_an_existing_closed_date(self):
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(Path(name))
+            new.main(["--root", name, "decision", "Old way"])
+            path = config.decisions / "0001-old-way.md"
+            path.write_text(path.read_text().replace('status = "open"', 'status = "resolved"\nclosed = 2026-09-01'))
+
+            new.main(["--root", name, "supersede", "0001", "New way"])
+
+            self.assertEqual(_docs.decisions(config)[0].closed.isoformat(), "2026-09-01")
+
+    def test_supersede_refuses_an_unknown_or_already_superseded_decision(self):
+        with TemporaryDirectory() as name:
+            fixtures.repo(Path(name))
+            new.main(["--root", name, "decision", "Old way"])
+
+            self.assertEqual(new.main(["--root", name, "supersede", "0009", "X"]), 2)
+            self.assertEqual(new.main(["--root", name, "supersede", "0001", "New way"]), 0)
+            self.assertEqual(new.main(["--root", name, "supersede", "0001", "Again"]), 2)
+
+    def test_close_an_investigation_names_the_decision_and_passes_the_check(self):
+        import _checks
+
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(Path(name))
+            new.main(["--root", name, "decision", "The answer"])
+            new.main(["--root", name, "investigation", "A hunt"])
+
+            self.assertEqual(new.main(["--root", name, "close", "investigation", "0001"]), 2)
+            self.assertEqual(
+                new.main(["--root", name, "close", "investigation", "0001", "--decision", "0009"]), 2
+            )
+            self.assertEqual(
+                new.main(["--root", name, "close", "investigation", "0001", "--decision", "0001"]), 0
+            )
+
+            self.assertEqual(_checks.answered_investigations(config), [])
+            self.assertIsNotNone(_docs.investigations(config)[0].answered)
+            self.assertEqual(
+                new.main(["--root", name, "close", "investigation", "0001", "--decision", "0001"]), 2
+            )
+
+    def test_close_debt_sets_resolved_once(self):
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(Path(name), debt="docs/debt")
+            new.main(["--root", name, "debt", "Global lock"])
+
+            self.assertEqual(new.main(["--root", name, "close", "debt", "0001", "--decision", "0001"]), 2)
+            self.assertEqual(new.main(["--root", name, "close", "debt", "0001"]), 0)
+            self.assertEqual(new.main(["--root", name, "close", "debt", "0001"]), 2)
+
+            self.assertIsNotNone(_docs.debt(config)[0].resolved)
+
     def test_the_config_can_be_written_before_anything_else_exists(self):
         """_config's refusal promises this, and a new adopter has nothing
         to read a config from."""

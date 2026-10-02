@@ -21,3 +21,4 @@ Nothing open.
 | 0006 | [A vendored copy cannot see upstream, and does not pretend to](decisions/0006-a-vendored-copy-cannot-see-upstream.md) | resolved | skill_version records what was adopted; check.py reports a mismatch with the copy beside it, never with upstream. |
 | 0007 | [The agent and CI run the same copy of the scripts](decisions/0007-agent-and-ci-run-the-same-copy.md) | resolved | A repo that vendors the scripts names where, and check.py says so when it ran from anywhere else. |
 | 0008 | [Citing something no longer live is a finding](decisions/0008-citing-something-no-longer-live-is-a-finding.md) | resolved | Code that cites a superseded decision, an answered investigation or resolved debt is reported, though the file still exists. |
+| 0009 | [new.py edits frontmatter as text](decisions/0009-new-py-edits-frontmatter-as-text.md) | resolved | supersede and close change one field at a time as text, because tomllib cannot write TOML back. |
