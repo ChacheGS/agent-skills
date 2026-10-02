@@ -230,9 +230,6 @@ def closing_dates(config: Config) -> list[Finding]:
     ]
 
 
-PLACEHOLDER = "TO BE WRITTEN"
-
-
 def conclusions_written(config: Config) -> list[Finding]:
     """The conclusion field is what the index renders, not the body.
 
@@ -253,7 +250,7 @@ def conclusions_written(config: Config) -> list[Finding]:
             ),
         )
         for item in readable(config)[0]
-        if item.status != "open" and PLACEHOLDER in item.conclusion
+        if item.status != "open" and _docs.PLACEHOLDER in item.conclusion
     ]
 
 

@@ -72,6 +72,21 @@ class Rendering(unittest.TestCase):
 
         self.assertIn("(../decisions/0042-a-node-says-what-it-is-once.md)", text)
 
+    def test_a_superseded_decision_and_its_heir_each_name_the_other(self):
+        """Only the old file says it was replaced. The heir's "replaces"
+        is derived, so it can never disagree."""
+        text = _render.render(
+            [
+                decision(id="0001", title="Old", status="superseded", superseded_by="0002",
+                         closed=date(2026, 9, 2)),
+                decision(id="0002", title="New", status="resolved", closed=date(2026, 9, 2)),
+            ],
+            **WHERE,
+        )
+
+        self.assertIn("| superseded by 0002 |", text)
+        self.assertIn("| resolved, replaces 0001 |", text)
+
     def test_an_empty_record_still_renders(self):
         text = _render.render([], **WHERE)
 
@@ -111,6 +126,15 @@ class RenderingInvestigations(unittest.TestCase):
 
         self.assertIn("(decisions/0042-a-node-says-what-it-is-once.md)", text)
         self.assertLess(text.index("## Open"), text.index("## Answered"))
+
+    def test_the_templates_placeholder_is_not_shown_as_a_next_step(self):
+        text = _render.render_investigations(
+            [investigation(body="## Next\n\nTO BE WRITTEN: the next measurement.\n")],
+            [],
+            index=LISTING,
+        )
+
+        self.assertNotIn("TO BE WRITTEN", text)
 
     def test_a_file_with_no_next_section_still_renders(self):
         text = _render.render_investigations([investigation(body="just notes")], [], index=LISTING)

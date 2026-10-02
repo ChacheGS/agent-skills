@@ -18,6 +18,10 @@ FENCE = "+++"
 
 STATUSES = frozenset({"open", "resolved", "rejected", "superseded"})
 
+# What a template writes into a field somebody still owes. Checked for in
+# a decision's conclusion and blanked in the investigations index.
+PLACEHOLDER = "TO BE WRITTEN"
+
 NAMED = re.compile(r"^(\d{4})-[a-z0-9][a-z0-9-]*$")
 
 
