@@ -29,11 +29,11 @@ The tests do not need copying. They belong to this repo's own gate.
 
 `python3 new.py --root /path/to/your/repo --config` writes a starting
 `.paper-trail.toml`. Edit the paths to match your layout; every key
-under `[paths]` is required except those four, and an unknown one is
+under `[paths]` is required except those five, and an unknown one is
 refused rather than ignored, because a typo would leave the real key
 at its default and check nothing.
 
-Four keys are optional. `investigations_index` is where `index.py` writes
+Five keys are optional. `investigations_index` is where `index.py` writes
 a page listing every investigation, open or answered. Absent, no such
 page is written or checked.
 
@@ -41,6 +41,12 @@ page is written or checked.
 on purpose, each with a `repay_when` condition. `debt` is the directory
 and `debt_index` the generated page, which cannot sit inside it. Absent,
 this repo keeps none and nothing is written or checked.
+
+`scripts` is for a vendored copy: the directory holding it, such as
+`tools/paper-trail`. When `check.py` runs from anywhere else it says so,
+because an installed skill and a vendored copy of different ages can
+disagree about the same record. A referenced config that sets it is
+refused.
 
 `cites` is a list of globs naming files outside the
 record that point at a decision by id, as a code comment saying
@@ -58,6 +64,21 @@ python3 tools/paper-trail/check.py --root .
 - **2** it could not run: no config, or a config it cannot read
 
 That distinction is the contract. Only one of those should stop a build.
+
+## 4. Tell your agent where the scripts are
+
+A vendored copy is invisible to an agent that has never been told it
+exists, and not every agent has the skill installed. Put a line in the
+file your agent reads (`CLAUDE.md`, `AGENTS.md`):
+
+```
+After editing docs/, run `python3 tools/paper-trail/check.py --root .`
+and `python3 tools/paper-trail/index.py --root .`.
+```
+
+Use your own path, and set `scripts` in the config to the same one. With
+the skill installed as well, the agent should still run the vendored
+copy, so that it and CI give the same answer.
 
 ## Where your record lives, and what git can answer about it
 

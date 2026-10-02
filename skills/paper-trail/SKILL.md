@@ -65,9 +65,12 @@ rather than written: a status in two places is two places to be wrong.
 
 ## The scripts
 
-`<here>` is the directory holding these scripts: wherever the adopting
-repo copied them, or wherever this skill is installed. `--root` is the
-repo whose `.paper-trail.toml` says where the record lives.
+`<here>` is the directory holding these scripts. If the repo's config
+sets `scripts`, or its `CLAUDE.md` or `AGENTS.md` names a copy, use that
+copy even when this skill is installed: CI runs it, and two copies of
+different ages can disagree. Otherwise `<here>` is where this skill is
+installed. `--root` is the repo whose `.paper-trail.toml` says where the
+record lives.
 
 - `python3 <here>/check.py --root .` runs every check. 0 clean, 1
   findings, 2 could not run.
