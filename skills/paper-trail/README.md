@@ -4,6 +4,20 @@ Three scripts, no dependencies, Python 3.11 or newer. 3.11 is the floor
 because the config is TOML and `tomllib` arrives there: Debian 12 and
 Ubuntu 24.04 are fine, RHEL 9's system Python is 3.9 and is not.
 
+## Install the skill
+
+This installs the skill for your agent. Adopting it in a repo is the
+steps below.
+
+```
+npx skills add ChacheGS/paper-trail         # this project
+npx skills add ChacheGS/paper-trail -g      # every project
+npx skills update                           # later
+```
+
+Without Node, clone the repo into `~/.claude/skills/paper-trail`, or into
+`.claude/skills/paper-trail` inside one project.
+
 ## 1. Choose where the scripts live
 
 **Vendored**, the usual choice: copy `check.py`, `index.py`, `new.py`,
