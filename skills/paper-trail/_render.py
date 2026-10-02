@@ -2,7 +2,7 @@
 
 Nothing here is authored. Every word comes from a decision's own
 frontmatter, which is what makes two copies of a status impossible:
-there is one copy, and this is a view of it.
+there is one copy, and this is a view of it. See docs/decisions/0004.
 """
 
 import os

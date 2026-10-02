@@ -3,7 +3,7 @@
 Exit codes are the contract: 0 clean, 1 findings, 2 could not run. A
 caller has to be able to tell "the record has a problem" from "nobody
 told me where the record is", because only one of those should stop a
-build.
+build. See docs/decisions/0003.
 """
 
 import argparse

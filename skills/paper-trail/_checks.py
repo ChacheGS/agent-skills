@@ -256,7 +256,7 @@ def closing_dates(config: Config) -> list[Finding]:
 
     A finding rather than a refusal, because migrated history often does
     not know: a date invented to satisfy a parser is worse than a gap
-    somebody can see and fill.
+    somebody can see and fill. See docs/decisions/0002.
     """
     return [
         Finding(
@@ -342,7 +342,8 @@ def debt_is_sound(config: Config) -> list[Finding]:
     The point of the list is the repay_when line: an agent asked what to
     do next reads it to judge which entries are due. One still holding
     the template's placeholder tells it nothing, so it is a finding
-    straight away, not only once closed as a conclusion is.
+    straight away, not only once closed as a conclusion is. See
+    docs/decisions/0005.
     """
     good, findings = readable_debt(config)
     known = {item.id for item in readable(config)[0]}
@@ -583,7 +584,7 @@ def citations_resolve(config: Config) -> list[Finding]:
 
     The record's own links are checked by links_resolve; this is the
     other direction, and the one that rots unwatched. A comment saying
-    "see docs/decisions/0066" is how an explanation earns the right to
+    "see docs/decisions/0004" is how an explanation earns the right to
     live in exactly one place, and it stops being true the moment that
     decision is renumbered, superseded into a new file, or deleted.
 
@@ -663,7 +664,8 @@ def stamp_is_current(config: Config, version: str) -> list[Finding]:
     they are two steps.
 
     Reported rather than failed by the caller: a contributor mid-task
-    should hear about it without being stopped by it.
+    should hear about it without being stopped by it. See
+    docs/decisions/0006.
     """
     if config.mode != "vendored" or not config.skill_version:
         return []

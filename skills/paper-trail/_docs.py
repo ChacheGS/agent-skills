@@ -4,6 +4,8 @@ TOML frontmatter rather than YAML because there is no YAML parser in the
 standard library and hand-rolling one is how prose gets eaten. ADRs that
 predate an adoption keep their YAML, and the reader at the bottom takes
 only the shape they actually use and refuses the rest.
+
+See docs/decisions/0001.
 """
 
 import re
