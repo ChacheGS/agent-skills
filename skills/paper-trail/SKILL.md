@@ -42,7 +42,8 @@ reported.
 
 To supersede: set `status = "superseded"`, `closed`, and `superseded_by`,
 then run `index.py`. Leave the old file where it is. Its number is still
-an address.
+an address. Do not write "replaces" in the new file: the index derives it
+from `superseded_by`, so the trail reads both ways from one copy.
 
 ## One fact, one home
 
