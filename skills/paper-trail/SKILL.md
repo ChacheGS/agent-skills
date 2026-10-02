@@ -172,8 +172,8 @@ proven.
 
 An investigation with no frontmatter at all is read as a note and left
 out of these checks rather than reported as broken, so an existing one
-is not a defect. The run says which files those are, so the exemption is visible and someone
-can end it by adding the header.
+is not a defect. The run says which files those are, so the exemption is
+visible and someone can end it by adding the header.
 
 ## What a document is asked
 
