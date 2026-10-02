@@ -292,6 +292,50 @@ def conclusions_written(config: Config) -> list[Finding]:
     ]
 
 
+REQUIRED_SECTIONS = ("what was decided", "why")
+
+
+def sections(text: str) -> dict[str, str]:
+    """The `## ` sections of a body, by lowercased heading.
+
+    Headings inside a fence are example text, not structure.
+    """
+    found: dict[str, list[str]] = {}
+    current = None
+    for line, bare in zip(text.split("\n"), outside_fences(text).split("\n")):
+        if bare.startswith("## "):
+            current = bare[3:].strip().lower()
+            found[current] = []
+        elif current is not None:
+            found[current].append(line)
+    return {heading: "\n".join(lines).strip() for heading, lines in found.items()}
+
+
+def sections_written(config: Config) -> list[Finding]:
+    """A closed decision says what was decided and why.
+
+    That is the record's whole point, so neither section may be missing
+    or empty. Matched by the words a heading starts with, so a title
+    reworded a little still counts. Only once closed, for the reason
+    conclusions_written gives.
+    """
+    findings = []
+    for item in readable(config)[0]:
+        if item.status == "open":
+            continue
+        found = sections(item.body)
+        for required in REQUIRED_SECTIONS:
+            matches = [text for heading, text in found.items() if heading.startswith(required)]
+            if not matches:
+                what = f"is {item.status} and has no '{required}' section"
+            elif not any(matches):
+                what = f"is {item.status} and its '{required}' section is empty"
+            else:
+                continue
+            findings.append(Finding(where=_where(item.path, config), what=what))
+    return findings
+
+
 def stubs_left(config: Config) -> list[Finding]:
     """A closed decision still carrying a template stub in its body.
 

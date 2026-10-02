@@ -217,6 +217,59 @@ class RelationsExist(unittest.TestCase):
             self.assertIn("adr_001.md", findings[0].where)
 
 
+class SectionsWritten(unittest.TestCase):
+    GOOD = "## What was decided\n\nX.\n\n## Why, and what it cost\n\nBecause."
+
+    def repo(self, root, body, status="resolved"):
+        config = fixtures.repo(root, decisions=[("0001", "A thing", body)])
+        path = config.decisions / "0001-a-thing.md"
+        path.write_text(
+            path.read_text().replace(
+                'status = "open"',
+                f'status = "{status}"' + ('\nclosed = 2026-09-26' if status != "open" else ""),
+            )
+        )
+        return config
+
+    def test_both_sections_filled_is_clean(self):
+        with TemporaryDirectory() as name:
+            self.assertEqual(_checks.sections_written(self.repo(Path(name), self.GOOD)), [])
+
+    def test_a_missing_section_is_a_finding(self):
+        with TemporaryDirectory() as name:
+            findings = _checks.sections_written(
+                self.repo(Path(name), "## What was decided\n\nX.")
+            )
+
+            self.assertEqual(len(findings), 1)
+            self.assertIn("no 'why' section", findings[0].what)
+
+    def test_a_bare_heading_is_a_finding(self):
+        with TemporaryDirectory() as name:
+            body = "## What was decided\n\n## Why, and what it cost\n\nBecause."
+
+            findings = _checks.sections_written(self.repo(Path(name), body))
+
+            self.assertEqual(len(findings), 1)
+            self.assertIn("'what was decided' section is empty", findings[0].what)
+
+    def test_a_reworded_heading_still_counts(self):
+        with TemporaryDirectory() as name:
+            body = "## What was decided here\n\nX.\n\n## Why this way\n\nBecause."
+
+            self.assertEqual(_checks.sections_written(self.repo(Path(name), body)), [])
+
+    def test_an_open_decision_is_not_held_to_it(self):
+        with TemporaryDirectory() as name:
+            self.assertEqual(_checks.sections_written(self.repo(Path(name), "", "open")), [])
+
+    def test_a_heading_inside_a_fence_is_not_a_section(self):
+        with TemporaryDirectory() as name:
+            body = "```\n## What was decided\nX\n```\n\n## Why\n\nBecause."
+
+            self.assertEqual(len(_checks.sections_written(self.repo(Path(name), body))), 1)
+
+
 class StubsLeft(unittest.TestCase):
     def one(self, root, *, status="open", body="TO BE WRITTEN: what was rejected."):
         config = fixtures.repo(root, decisions=[("0001", "A thing", body)])
