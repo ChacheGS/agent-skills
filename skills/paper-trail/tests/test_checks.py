@@ -217,6 +217,43 @@ class RelationsExist(unittest.TestCase):
             self.assertIn("adr_001.md", findings[0].where)
 
 
+class StubsLeft(unittest.TestCase):
+    def one(self, root, *, status="open", body="TO BE WRITTEN: what was rejected."):
+        config = fixtures.repo(root, decisions=[("0001", "A thing", body)])
+        path = config.decisions / "0001-a-thing.md"
+        path.write_text(
+            path.read_text().replace(
+                'status = "open"', f'status = "{status}"\nclosed = 2026-09-26' if status != "open" else 'status = "open"'
+            )
+        )
+        return config
+
+    def test_an_open_decision_may_still_have_it(self):
+        with TemporaryDirectory() as name:
+            self.assertEqual(_checks.stubs_left(self.one(Path(name))), [])
+
+    def test_a_closed_decision_with_the_stub_is_a_finding(self):
+        with TemporaryDirectory() as name:
+            findings = _checks.stubs_left(self.one(Path(name), status="resolved"))
+
+            self.assertEqual(len(findings), 1)
+            self.assertIn("delete the section", findings[0].what)
+
+    def test_a_closed_decision_with_the_section_deleted_is_clean(self):
+        with TemporaryDirectory() as name:
+            config = self.one(Path(name), status="resolved", body="## Why\n\nBecause.")
+
+            self.assertEqual(_checks.stubs_left(config), [])
+
+    def test_prose_mentioning_the_marker_is_not_a_stub(self):
+        with TemporaryDirectory() as name:
+            config = self.one(
+                Path(name), status="resolved", body="The template says TO BE WRITTEN there.\n\n```\nTO BE WRITTEN: x\n```"
+            )
+
+            self.assertEqual(_checks.stubs_left(config), [])
+
+
 class PathsExist(unittest.TestCase):
     def test_a_backticked_path_that_moved_is_a_finding(self):
         with TemporaryDirectory() as name:

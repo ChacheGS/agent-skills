@@ -292,6 +292,30 @@ def conclusions_written(config: Config) -> list[Finding]:
     ]
 
 
+def stubs_left(config: Config) -> list[Finding]:
+    """A closed decision still carrying a template stub in its body.
+
+    The template leaves a marker line under "What was rejected" because
+    not every decision rejects something. Filling it in and deleting the
+    section both say so on purpose; leaving the marker says nobody
+    decided. Only lines that start with the marker count, so prose
+    mentioning it is fine, and only once closed, for the reason
+    conclusions_written gives.
+    """
+    return [
+        Finding(
+            where=_where(item.path, config),
+            what=f"is {item.status} and still has a {_docs.PLACEHOLDER} line. Fill it in, or delete the section.",
+        )
+        for item in readable(config)[0]
+        if item.status != "open"
+        and any(
+            line.strip().startswith(_docs.PLACEHOLDER)
+            for line in outside_fences(item.body).split("\n")
+        )
+    ]
+
+
 def answered_investigations(config: Config) -> list[Finding]:
     """An investigation that finished names the decision that kept it.
 

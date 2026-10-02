@@ -36,6 +36,7 @@ CHECKS = (
     _checks.relations_exist,
     _checks.paths_exist,
     _checks.conclusions_written,
+    _checks.stubs_left,
     _checks.answered_investigations,
     _checks.debt_is_sound,
     _checks.citations_resolve,

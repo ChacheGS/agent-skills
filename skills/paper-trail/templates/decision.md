@@ -16,3 +16,5 @@ plan = []
 ## Why, and what it cost
 
 ## What was rejected, and why
+
+TO BE WRITTEN: what was rejected and why. If nothing was, delete this section.
