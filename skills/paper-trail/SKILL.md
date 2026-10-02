@@ -61,7 +61,8 @@ repo whose `.paper-trail.toml` says where the record lives.
 
 - `python3 <here>/check.py --root .` runs every check. 0 clean, 1
   findings, 2 could not run.
-- `python3 <here>/index.py --root .` rewrites the index.
+- `python3 <here>/index.py --root .` rewrites the index, and the
+  investigations index if the config names one.
 - `python3 <here>/new.py --root . decision "A title"` starts one.
 - `python3 <here>/new.py --root . investigation "A symptom"` starts one.
 - `python3 <here>/new.py --root . --config` writes a starting config.
@@ -75,7 +76,7 @@ hand-edit to it is a finding.
 
 ## What the checks report
 
-- The index differs from what the decisions say.
+- An index differs from what the files say.
 - A decision or investigation that does not parse, or has a bad field.
 - A decision that is not open and has no `closed` date, or still has the
   placeholder conclusion.
@@ -93,6 +94,15 @@ hand-edit to it is a finding.
 Two things are printed but never counted as findings: a vendored copy
 whose `VERSION` differs from the `skill_version` recorded in the config,
 and investigations with no frontmatter, which are left out.
+
+## Finding your bearings
+
+The decision index lists what was settled and what is open. Set
+`investigations_index` under `[paths]` and `index.py` also writes a page
+of every investigation: the open ones with the first line of their
+`## Next` section, and the answered ones with the decision that kept
+the conclusion. Read it first when picking up a repo, to see what is in
+flight. Absent, no such page is written or checked.
 
 ## Closing an investigation
 
