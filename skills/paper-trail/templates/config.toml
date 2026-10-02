@@ -19,9 +19,9 @@ plans = "docs/plans"
 # and cannot sit inside debt, where every file must be an entry.
 # debt = "docs/debt"
 # debt_index = "docs/DEBT.md"
-# Optional, vendored mode only. Where this repo keeps its copy of the
-# scripts. check.py says so when it was run from somewhere else, because
-# two copies of different ages can disagree about the same record.
+# Optional, vendored mode only. Where this repo keeps its own copy of
+# the tools. check.py says so when run from somewhere else, because two
+# copies of different ages can disagree about the same record.
 # scripts = "tools/paper-trail"
 # Optional. Files outside the record that cite a decision by id, as a
 # code comment saying "see docs/decisions/0001" does. Listed here, those
