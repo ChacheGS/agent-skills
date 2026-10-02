@@ -29,11 +29,11 @@ The tests do not need copying. They belong to this repo's own gate.
 
 `python3 new.py --root /path/to/your/repo --config` writes a starting
 `.paper-trail.toml`. Edit the paths to match your layout; every key
-under `[paths]` is required, and an unknown one is refused rather than
-ignored, because a typo would leave the real key at its default and
-check nothing.
+under `[paths]` is required except `cites`, and an unknown one is
+refused rather than ignored, because a typo would leave the real key
+at its default and check nothing.
 
-One optional key: `cites`, a list of globs naming files outside the
+`cites` is the one optional key: a list of globs naming files outside the
 record that point at a decision by id, as a code comment saying
 `see docs/decisions/0066` does. Those citations are then checked to
 still name something. Empty by default.
