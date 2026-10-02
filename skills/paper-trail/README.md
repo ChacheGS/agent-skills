@@ -18,7 +18,7 @@ is smaller and still worth having. It is the version you recorded when
 you adopted, and `check.py` says so when it disagrees with the `VERSION`
 sitting beside the scripts, which is what a half-finished re-vendor
 looks like. Updating means copying the files again and writing the new
-number down.
+number down. `CHANGELOG.md` says what each version can newly report.
 
 **Referenced**: leave them here and point at them. Nothing drifts, and
 nothing runs where this skill is absent.
