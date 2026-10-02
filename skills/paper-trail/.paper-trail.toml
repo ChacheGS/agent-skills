@@ -1,0 +1,12 @@
+# This skill keeps its own record with its own checks.
+mode = "referenced"
+
+[paths]
+decisions = "docs/decisions"
+investigations = "docs/investigations"
+index = "docs/DECISIONS.md"
+adr = "docs/adr"
+specs = "docs/specs"
+plans = "docs/plans"
+# The scripts point back at the decisions that explain them.
+cites = ["*.py"]

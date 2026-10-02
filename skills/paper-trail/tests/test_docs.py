@@ -1,0 +1,301 @@
+import sys
+import unittest
+from datetime import date
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import _config
+import _docs
+
+DECISION = """+++
+id = "0042"
+title = "A node says what it is once"
+status = "open"
+opened = 2026-09-25
+conclusion = "The accessory decides the transport."
+adr = []
+spec = []
+plan = []
++++
+
+The body, which a table cell could not hold.
+"""
+
+
+class Frontmatter(unittest.TestCase):
+    def test_the_fences_are_split_from_the_body(self):
+        fields, body = _docs.frontmatter(DECISION)
+
+        self.assertEqual(fields["id"], "0042")
+        self.assertEqual(fields["opened"], date(2026, 9, 25))
+        self.assertEqual(body.strip(), "The body, which a table cell could not hold.")
+
+    def test_a_file_with_no_fences_is_refused(self):
+        """Every decision is read for the index, so one that silently
+        contributed nothing would vanish from it."""
+        with self.assertRaises(_config.PaperTrailError) as refusal:
+            _docs.frontmatter("# Just a heading\n")
+
+        self.assertIn("+++", str(refusal.exception))
+
+    def test_frontmatter_that_is_never_closed_is_refused(self):
+        with self.assertRaises(_config.PaperTrailError) as refusal:
+            _docs.frontmatter('+++\nid = "0001"\n')
+
+        self.assertIn("never closed", str(refusal.exception))
+
+
+class Discovery(unittest.TestCase):
+    def repo(self, name, **files):
+        root = Path(name)
+        (root / "docs" / "decisions").mkdir(parents=True)
+        for filename, text in files.items():
+            (root / "docs" / "decisions" / filename).write_text(text)
+        (root / ".paper-trail.toml").write_text(
+            "[paths]\n"
+            'decisions = "docs/decisions"\n'
+            'investigations = "docs/investigations"\n'
+            'index = "docs/index.md"\n'
+            'adr = "docs/adr"\n'
+            'specs = "docs/specs"\n'
+            'plans = "docs/plans"\n'
+        )
+        return _config.load(root)
+
+    def test_decisions_come_back_ordered_by_id(self):
+        with TemporaryDirectory() as name:
+            config = self.repo(
+                name,
+                **{
+                    "0007-later.md": DECISION.replace('"0042"', '"0007"'),
+                    "0042-earlier.md": DECISION,
+                },
+            )
+
+            self.assertEqual([item.id for item in _docs.decisions(config)], ["0007", "0042"])
+
+    def test_two_files_sharing_an_id_are_refused_naming_both(self):
+        """Links resolve by id prefix, so a duplicate is a link that
+        silently points at whichever file sorted first."""
+        with TemporaryDirectory() as name:
+            config = self.repo(name, **{"0042-one.md": DECISION, "0042-two.md": DECISION})
+
+            with self.assertRaises(_config.PaperTrailError) as refusal:
+                _docs.decisions(config)
+
+            self.assertIn("0042-one.md", str(refusal.exception))
+            self.assertIn("0042-two.md", str(refusal.exception))
+
+    def test_a_filename_that_disagrees_with_its_id_is_refused(self):
+        with TemporaryDirectory() as name:
+            config = self.repo(name, **{"0099-mismatch.md": DECISION})
+
+            with self.assertRaises(_config.PaperTrailError) as refusal:
+                _docs.decisions(config)
+
+            self.assertIn("0042", str(refusal.exception))
+
+    def test_a_file_not_named_for_an_id_is_refused(self):
+        with TemporaryDirectory() as name:
+            config = self.repo(name, **{"notes.md": DECISION})
+
+            with self.assertRaises(_config.PaperTrailError) as refusal:
+                _docs.decisions(config)
+
+            self.assertIn("NNNN-slug.md", str(refusal.exception))
+
+    def test_a_status_outside_the_set_is_refused(self):
+        with TemporaryDirectory() as name:
+            config = self.repo(
+                name, **{"0042-a.md": DECISION.replace('"open"', '"in progress"')}
+            )
+
+            with self.assertRaises(_config.PaperTrailError) as refusal:
+                _docs.decisions(config)
+
+            self.assertIn("in progress", str(refusal.exception))
+
+    def test_a_superseded_decision_names_what_replaced_it(self):
+        """A dead end with no forwarding address is the shape this design
+        exists to remove."""
+        with TemporaryDirectory() as name:
+            config = self.repo(
+                name,
+                **{
+                    "0042-a.md": DECISION.replace('"open"', '"superseded"').replace(
+                        "adr = []", "closed = 2026-09-26\nadr = []"
+                    )
+                },
+            )
+
+            with self.assertRaises(_config.PaperTrailError) as refusal:
+                _docs.decisions(config)
+
+            self.assertIn("the trail stops here", str(refusal.exception))
+
+    def test_a_missing_decisions_directory_is_empty_rather_than_an_error(self):
+        """A repo that has adopted the skill and not written a decision
+        yet is a normal state, not a broken one."""
+        with TemporaryDirectory() as name:
+            config = self.repo(name)
+            for path in config.decisions.iterdir():
+                path.unlink()
+            config.decisions.rmdir()
+
+            self.assertEqual(_docs.decisions(config), [])
+
+
+class AdrRelations(unittest.TestCase):
+    def test_a_related_list_is_read(self):
+        with TemporaryDirectory() as name:
+            path = Path(name) / "adr_025.md"
+            path.write_text(
+                "---\n"
+                "date: 2026-09-26\n"
+                "status: accepted\n"
+                "related:\n"
+                "  - docs/adr/adr_024.md\n"
+                "  - docs/specs/a-design.md\n"
+                "---\n\n# ADR-025\n"
+            )
+
+            self.assertEqual(
+                _docs.adr_relations(path),
+                ("docs/adr/adr_024.md", "docs/specs/a-design.md"),
+            )
+
+    def test_an_empty_related_list_reads_as_nothing(self):
+        with TemporaryDirectory() as name:
+            path = Path(name) / "adr_001.md"
+            path.write_text("---\ndate: 2026-01-01\nrelated: []\n---\n")
+
+            self.assertEqual(_docs.adr_relations(path), ())
+
+    def test_a_file_with_no_frontmatter_reads_as_nothing(self):
+        with TemporaryDirectory() as name:
+            path = Path(name) / "notes.md"
+            path.write_text("# just prose\n")
+
+            self.assertEqual(_docs.adr_relations(path), ())
+
+    def test_a_shape_the_reader_does_not_know_is_refused(self):
+        """A parser that silently misreads is worse than one that stops:
+        returning () here would report every ADR as citing nothing."""
+        with TemporaryDirectory() as name:
+            path = Path(name) / "adr_099.md"
+            path.write_text("---\nrelated: {a: 1}\n---\n")
+
+            with self.assertRaises(_config.PaperTrailError):
+                _docs.adr_relations(path)
+
+
+class ClosedWithoutADate(unittest.TestCase):
+    def test_a_resolved_decision_with_no_date_still_parses(self):
+        """Migrated history often does not know when something closed, and
+        a guess would be worse than a gap. The file is well formed; the
+        gap is a finding rather than a refusal."""
+        with TemporaryDirectory() as name:
+            root = Path(name)
+            (root / "docs" / "decisions").mkdir(parents=True)
+            (root / "docs" / "decisions" / "0001-a-thing.md").write_text(
+                DECISION.replace('"0042"', '"0001"').replace('"open"', '"resolved"')
+            )
+            (root / ".paper-trail.toml").write_text(
+                "[paths]\n"
+                'decisions = "docs/decisions"\ninvestigations = "docs/i"\nindex = "docs/x.md"\n'
+                'adr = "docs/adr"\nspecs = "docs/s"\nplans = "docs/p"\n'
+            )
+
+            item = _docs.decisions(_config.load(root))[0]
+
+            self.assertEqual(item.status, "resolved")
+            self.assertIsNone(item.closed)
+
+
+class Encoding(unittest.TestCase):
+    def repo(self, root, name, raw):
+        (root / "docs" / "decisions").mkdir(parents=True)
+        (root / "docs" / "decisions" / name).write_bytes(raw)
+        (root / ".paper-trail.toml").write_text(
+            "[paths]\n"
+            'decisions = "docs/decisions"\ninvestigations = "docs/i"\nindex = "docs/x.md"\n'
+            'adr = "docs/adr"\nspecs = "docs/s"\nplans = "docs/p"\n',
+            encoding="utf-8",
+        )
+        return _config.load(root)
+
+    def test_a_decision_is_read_as_utf8_whatever_the_locale_says(self):
+        """The locale default is ascii in a C-locale container and cp1252
+        on Windows, and either one turns a degree sign into a crash."""
+        with TemporaryDirectory() as name:
+            body = DECISION.replace("A node says what it is once", "Levelling to 0.25°")
+            config = self.repo(Path(name), "0042-levelling.md", body.encode("utf-8"))
+
+            self.assertEqual(_docs.decisions(config)[0].title, "Levelling to 0.25°")
+
+    def test_a_byte_order_mark_is_not_a_missing_fence(self):
+        """Windows editors write one, and reading it as content diagnoses
+        the wrong problem entirely."""
+        with TemporaryDirectory() as name:
+            config = self.repo(
+                Path(name), "0042-a.md", b"\xef\xbb\xbf" + DECISION.encode("utf-8")
+            )
+
+            self.assertEqual(_docs.decisions(config)[0].id, "0042")
+
+    def test_a_file_that_is_not_utf8_is_a_refusal_rather_than_a_crash(self):
+        with TemporaryDirectory() as name:
+            config = self.repo(Path(name), "0042-a.md", b"+++\nid = \"0042\"\n\xff\xfe+++\n")
+
+            with self.assertRaises(_config.PaperTrailError) as refusal:
+                _docs.decisions(config)
+
+            self.assertIn("utf-8", str(refusal.exception).lower())
+
+
+class AdrSubset(unittest.TestCase):
+    def read(self, body):
+        with TemporaryDirectory() as name:
+            path = Path(name) / "adr_001.md"
+            path.write_text(f"---\nrelated:\n{body}---\n", encoding="utf-8")
+            return _docs.adr_relations(path)
+
+    def test_a_quoted_scalar_is_unquoted(self):
+        """Quoted scalars are ordinary YAML, and keeping the quotes makes
+        the path a file nobody named."""
+        self.assertEqual(self.read('  - "docs/quoted.md"\n'), ("docs/quoted.md",))
+
+    def test_a_hash_inside_a_path_is_not_a_comment(self):
+        """YAML starts a comment at a # preceded by whitespace."""
+        self.assertEqual(self.read("  - docs/note#2.md\n"), ("docs/note#2.md",))
+
+    def test_a_comment_after_a_path_is_still_dropped(self):
+        self.assertEqual(self.read("  - docs/a.md  # and why\n"), ("docs/a.md",))
+
+    def test_an_inline_list_item_is_refused(self):
+        with self.assertRaises(_config.PaperTrailError):
+            self.read("  - [a, b]\n")
+
+
+class Dates(unittest.TestCase):
+    def test_a_quoted_date_is_refused(self):
+        """TOML writes a date bare. Quoted it is a string, which renders
+        into the index and compares against nothing."""
+        with TemporaryDirectory() as name:
+            root = Path(name)
+            (root / "docs" / "decisions").mkdir(parents=True)
+            (root / "docs" / "decisions" / "0042-a.md").write_text(
+                DECISION.replace("opened = 2026-09-25", 'opened = "banana"'), encoding="utf-8"
+            )
+            (root / ".paper-trail.toml").write_text(
+                "[paths]\n"
+                'decisions = "docs/decisions"\ninvestigations = "docs/i"\nindex = "docs/x.md"\n'
+                'adr = "docs/adr"\nspecs = "docs/s"\nplans = "docs/p"\n',
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(_config.PaperTrailError) as refusal:
+                _docs.decisions(_config.load(root))
+
+            self.assertIn("not a date", str(refusal.exception))

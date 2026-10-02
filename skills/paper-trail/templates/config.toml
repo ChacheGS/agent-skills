@@ -1,0 +1,31 @@
+# Where this repo keeps its written record, and how it got the scripts.
+mode = "vendored"
+skill_version = "{version}"
+
+[paths]
+decisions = "docs/decisions"
+investigations = "docs/investigations"
+# Anywhere but inside `decisions`: every file there must be a decision,
+# so an index written among them refuses to parse ever after.
+index = "docs/DECISIONS.md"
+adr = "docs/adr"
+specs = "docs/specs"
+plans = "docs/plans"
+# Optional. Where index.py writes the list of open and answered
+# investigations. Absent means no such page is written or checked.
+# investigations_index = "docs/INVESTIGATIONS.md"
+# Optional. Shortcuts taken on purpose, each with a repay_when. Absent
+# means this repo keeps no debt entries. debt_index is the generated page,
+# and cannot sit inside debt, where every file must be an entry.
+# debt = "docs/debt"
+# debt_index = "docs/DEBT.md"
+# Optional. Files outside the record that cite a decision by id, as a
+# code comment saying "see docs/decisions/0001" does. Listed here, those
+# citations are checked to still name something. Absent means nothing
+# outside the record is read.
+# cites = ["src/**/*.py", "tests/*.robot"]
+
+[thresholds]
+# An investigation nothing has touched in this many days is either
+# finished and owes a decision, or abandoned and owes a deletion.
+investigation_days = 14
