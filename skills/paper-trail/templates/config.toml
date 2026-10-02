@@ -14,6 +14,11 @@ plans = "docs/plans"
 # Optional. Where index.py writes the list of open and answered
 # investigations. Absent means no such page is written or checked.
 # investigations_index = "docs/INVESTIGATIONS.md"
+# Optional. Shortcuts taken on purpose, each with a repay_when. Absent
+# means this repo keeps no debt entries. debt_index is the generated page,
+# and cannot sit inside debt, where every file must be an entry.
+# debt = "docs/debt"
+# debt_index = "docs/DEBT.md"
 # Optional. Files outside the record that cite a decision by id, as a
 # code comment saying "see docs/decisions/0001" does. Listed here, those
 # citations are checked to still name something. Absent means nothing

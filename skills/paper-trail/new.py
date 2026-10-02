@@ -1,4 +1,4 @@
-"""Scaffold a decision, an investigation, or a repo's config.
+"""Scaffold a decision, an investigation, a debt entry, or a repo's config.
 
 Half the answer to the problem the checks cannot reach: nothing can find
 an investigation that was never opened, so the only lever is making one
@@ -53,12 +53,12 @@ def _write_config(root: Path) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Start a decision or an investigation.")
+    parser = argparse.ArgumentParser(description="Start a decision, an investigation or a debt entry.")
     parser.add_argument("--root", default=".", help="the repository root")
     parser.add_argument(
         "--config", action="store_true", help="write a starting .paper-trail.toml and stop"
     )
-    parser.add_argument("kind", nargs="?", choices=("decision", "investigation"))
+    parser.add_argument("kind", nargs="?", choices=("decision", "investigation", "debt"))
     parser.add_argument("title", nargs="?", help="what it is about, in a few words")
     args = parser.parse_args(argv)
 
@@ -69,12 +69,22 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         config = _config.load(Path(args.root))
+        directory = {
+            "decision": config.decisions,
+            "investigation": config.investigations,
+            "debt": config.debt,
+        }[args.kind]
+        if directory is None:
+            raise _config.PaperTrailError(
+                f"{config.root / _config.CONFIG_NAME} names no paths.debt, so there is "
+                f"nowhere to put one"
+            )
         existing = (
             [item.id for item in _docs.decisions(config)]
             if args.kind == "decision"
             else [
                 path.stem[:4]
-                for path in sorted(config.investigations.glob("*.md"))
+                for path in sorted(directory.glob("*.md"))
                 if path.stem[:4].isdigit()
             ]
         )
@@ -82,7 +92,6 @@ def main(argv: list[str] | None = None) -> int:
         print(refusal, file=sys.stderr)
         return 2
 
-    directory = config.decisions if args.kind == "decision" else config.investigations
     named = slug(args.title)
     if not named:
         # `0002-.md` is not a name the parser accepts, so writing one

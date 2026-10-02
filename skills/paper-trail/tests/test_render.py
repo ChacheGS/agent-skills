@@ -146,3 +146,43 @@ class RenderingInvestigations(unittest.TestCase):
 
         self.assertIn("Nothing open", text)
         self.assertIn("Nothing answered yet", text)
+
+
+def debt(**overrides):
+    fields = dict(
+        id="0004",
+        title="Global lock",
+        opened=date(2026, 9, 25),
+        repay_when="a second writer exists",
+        resolved=None,
+        decision=None,
+        path=Path("/repo/docs/debt/0004-global-lock.md"),
+        body="",
+    )
+    fields.update(overrides)
+    return _docs.Debt(**fields)
+
+
+LEDGER = Path("/repo/docs/DEBT.md")
+
+
+class RenderingDebt(unittest.TestCase):
+    def test_it_counts_what_is_open_and_says_when_to_pay(self):
+        text = _render.render_debt(
+            [debt(), debt(id="0005", title="Naive scan", repay_when="N passes 10k"),
+             debt(id="0006", title="Paid", resolved=date(2026, 10, 1))],
+            [],
+            index=LEDGER,
+        )
+
+        self.assertIn("2 open.", text)
+        self.assertIn("| a second writer exists |", text)
+        self.assertLess(text.index("## Open"), text.index("## Resolved"))
+        self.assertLess(text.index("[Naive scan]"), text.index("## Resolved"))
+        self.assertGreater(text.index("[Paid]"), text.index("## Resolved"))
+
+    def test_an_empty_ledger_still_renders(self):
+        text = _render.render_debt([], [], index=LEDGER)
+
+        self.assertIn("Nothing open", text)
+        self.assertIn("Nothing resolved yet", text)

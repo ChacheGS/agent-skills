@@ -1,5 +1,5 @@
-"""Write the index from the decision files, and the investigations index
-if the config names one.
+"""Write the index from the decision files, and the investigations and debt
+indexes if the config names them.
 
 Its own entry point rather than a flag on check.py, because writing and
 checking are different jobs and a check that repairs what it is checking
@@ -34,20 +34,35 @@ def main(argv: list[str] | None = None) -> int:
         print(broken, file=sys.stderr)
         return 1
 
-    listing = None
+    pages = [(config.index, text)]
     if config.investigations_index is not None:
         found, unreadable = _checks.readable_investigations(config)
         if unreadable:
             for finding in unreadable:
                 print(finding, file=sys.stderr)
             return 1
-        listing = _render.render_investigations(
-            found, _docs.decisions(config), index=config.investigations_index
+        pages.append(
+            (
+                config.investigations_index,
+                _render.render_investigations(
+                    found, _docs.decisions(config), index=config.investigations_index
+                ),
+            )
+        )
+    if config.debt_index is not None:
+        found, unreadable = _checks.readable_debt(config)
+        if unreadable:
+            for finding in unreadable:
+                print(finding, file=sys.stderr)
+            return 1
+        pages.append(
+            (
+                config.debt_index,
+                _render.render_debt(found, _docs.decisions(config), index=config.debt_index),
+            )
         )
 
-    for path, body in ((config.index, text), (config.investigations_index, listing)):
-        if body is None:
-            continue
+    for path, body in pages:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(body, encoding="utf-8")
         print(f"wrote {path}")

@@ -59,6 +59,25 @@ class Writing(unittest.TestCase):
             for heading in ("## Symptom", "## Established", "## Refuted", "## Next"):
                 self.assertIn(heading, written)
 
+    def test_a_new_debt_entry_parses_and_is_not_yet_sound(self):
+        """It parses, so the next run is not wedged, and it fails the
+        repay_when check until somebody writes the condition."""
+        import _checks
+
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(Path(name), debt="docs/debt")
+
+            new.main(["--root", str(config.root), "debt", "Global lock"])
+
+            self.assertEqual([item.title for item in _docs.debt(config)], ["Global lock"])
+            self.assertEqual(len(_checks.debt_is_sound(config)), 1)
+
+    def test_debt_without_a_configured_directory_is_refused(self):
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(Path(name))
+
+            self.assertEqual(new.main(["--root", str(config.root), "debt", "Global lock"]), 2)
+
     def test_the_config_can_be_written_before_anything_else_exists(self):
         """_config's refusal promises this, and a new adopter has nothing
         to read a config from."""

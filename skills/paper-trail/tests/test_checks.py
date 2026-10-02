@@ -832,3 +832,107 @@ class CitationsResolve(unittest.TestCase):
 
             self.assertEqual(len(findings), 1)
             self.assertIn("docs/investigations/0009", findings[0].what)
+
+
+DEBT = """+++
+id = "{id}"
+title = "a shortcut"
+opened = 2026-09-25
+repay_when = "{repay}"
+{extra}+++
+
+# a shortcut
+"""
+
+
+class DebtIsSound(unittest.TestCase):
+    def one(self, root, *, repay="a second writer exists", extra="", decisions=()):
+        config = fixtures.repo(root, decisions=decisions, debt="docs/debt", debt_index="docs/DEBT.md")
+        config.debt.mkdir(parents=True, exist_ok=True)
+        (config.debt / "0001-a-shortcut.md").write_text(
+            DEBT.format(id="0001", repay=repay, extra=extra)
+        )
+        return config
+
+    def test_a_sound_entry_is_clean(self):
+        with TemporaryDirectory() as name:
+            self.assertEqual(_checks.debt_is_sound(self.one(Path(name))), [])
+
+    def test_open_debt_with_the_placeholder_is_a_finding(self):
+        with TemporaryDirectory() as name:
+            config = self.one(Path(name), repay="TO BE WRITTEN: when")
+
+            findings = _checks.debt_is_sound(config)
+
+            self.assertEqual(len(findings), 1)
+            self.assertIn("repay_when", findings[0].what)
+
+    def test_resolved_debt_may_keep_its_old_repay_when(self):
+        with TemporaryDirectory() as name:
+            config = self.one(Path(name), repay="TO BE WRITTEN: when", extra="resolved = 2026-10-01\n")
+
+            self.assertEqual(_checks.debt_is_sound(config), [])
+
+    def test_an_entry_without_repay_when_is_a_finding(self):
+        with TemporaryDirectory() as name:
+            config = self.one(Path(name))
+            (config.debt / "0001-a-shortcut.md").write_text(
+                "+++\nid = \"0001\"\ntitle = \"x\"\nopened = 2026-09-25\n+++\n"
+            )
+
+            findings = _checks.debt_is_sound(config)
+
+            self.assertEqual(len(findings), 1)
+            self.assertIn("no repay_when", findings[0].what)
+
+    def test_a_named_decision_that_does_not_exist_is_a_finding(self):
+        with TemporaryDirectory() as name:
+            config = self.one(Path(name), extra='decision = "0009"\n')
+
+            findings = _checks.debt_is_sound(config)
+
+            self.assertEqual(len(findings), 1)
+            self.assertIn("0009", findings[0].what)
+
+    def test_a_backticked_path_that_moved_is_a_finding(self):
+        with TemporaryDirectory() as name:
+            config = self.one(Path(name))
+            with (config.debt / "0001-a-shortcut.md").open("a") as handle:
+                handle.write("\nSee `src/gone/lock.py`.\n")
+
+            findings = _checks.paths_exist(config)
+
+            self.assertEqual(len(findings), 1)
+            self.assertIn("src/gone/lock.py", findings[0].what)
+
+    def test_code_citing_a_debt_entry_that_is_gone_is_a_finding(self):
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(
+                Path(name),
+                debt="docs/debt",
+                cites=["src/*.c"],
+                extra={"src/a.c": "/* see docs/debt/0007 */\n"},
+            )
+            config.debt.mkdir(parents=True, exist_ok=True)
+            (config.debt / "0001-a-shortcut.md").write_text(
+                DEBT.format(id="0001", repay="x", extra="")
+            )
+
+            findings = _checks.citations_resolve(config)
+
+            self.assertEqual(len(findings), 1)
+            self.assertIn("docs/debt/0007", findings[0].what)
+
+    def test_a_stale_debt_index_is_a_finding(self):
+        import index
+
+        with TemporaryDirectory() as name:
+            config = self.one(Path(name))
+            self.assertEqual(index.main(["--root", name]), 0)
+            self.assertEqual(_checks.index_is_current(config), [])
+            config.debt_index.write_text("# stale\n")
+
+            findings = _checks.index_is_current(config)
+
+            self.assertEqual(len(findings), 1)
+            self.assertIn("DEBT.md", findings[0].where)

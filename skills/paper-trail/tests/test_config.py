@@ -5,6 +5,7 @@ from tempfile import TemporaryDirectory
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import _config
+import fixtures
 
 
 class Loading(unittest.TestCase):
@@ -118,6 +119,13 @@ class Loading(unittest.TestCase):
 
             with self.assertRaises(_config.PaperTrailError):
                 _config.load(root)
+
+    def test_debt_is_optional_and_absent_means_none(self):
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(Path(name))
+
+            self.assertIsNone(config.debt)
+            self.assertIsNone(config.debt_index)
 
     def test_invalid_toml_says_so(self):
         with TemporaryDirectory() as name:

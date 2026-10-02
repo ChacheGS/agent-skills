@@ -54,12 +54,16 @@ def markdown_files(config: Config) -> list[Path]:
     directories = (
         config.decisions,
         config.investigations,
+        config.debt,
         config.adr,
         config.specs,
         config.plans,
     )
     return sorted(
-        path for directory in directories if directory.is_dir() for path in directory.rglob("*.md")
+        path
+        for directory in directories
+        if directory is not None and directory.is_dir()
+        for path in directory.rglob("*.md")
     )
 
 
@@ -135,6 +139,18 @@ def index_is_current(config: Config) -> list[Finding]:
                     what="is not what the investigations say. Run index.py.",
                 )
             )
+    if config.debt_index is not None:
+        wanted = _render.render_debt(
+            readable_debt(config)[0], _docs.decisions(config), index=config.debt_index
+        )
+        found = _docs.read(config.debt_index) if config.debt_index.is_file() else ""
+        if found != wanted:
+            findings.append(
+                Finding(
+                    where=_where(config.debt_index, config),
+                    what="is not what the debt files say. Run index.py.",
+                )
+            )
     return findings
 
 
@@ -201,6 +217,28 @@ def readable_investigations(config: Config) -> tuple[list, list[Finding]]:
             findings.append(
                 Finding(where=_where(path, config), what=_without(str(broken), path))
             )
+    return good, findings
+
+
+def readable_debt(config: Config) -> tuple[list, list[Finding]]:
+    """The debt entries that parse, and a finding for each that does not.
+
+    Every .md file here is an entry. Unlike investigations there is no
+    older record to be kind to, so a file without frontmatter is a defect.
+    """
+    if config.debt is None or not config.debt.is_dir():
+        return [], []
+    good: list = []
+    findings: list[Finding] = []
+    try:
+        listed = sorted(path for path in config.debt.iterdir() if path.suffix == ".md")
+    except OSError as broken:
+        return [], [Finding(where=_where(config.debt, config), what=f"cannot be read: {broken}")]
+    for path in listed:
+        try:
+            good.extend(_docs.debt_in([path]))
+        except PaperTrailError as broken:
+            findings.append(Finding(where=_where(path, config), what=_without(str(broken), path)))
     return good, findings
 
 
@@ -298,6 +336,34 @@ def answered_investigations(config: Config) -> list[Finding]:
     return findings
 
 
+def debt_is_sound(config: Config) -> list[Finding]:
+    """Open debt says when to pay it, and a named decision exists.
+
+    The point of the list is the repay_when line: an agent asked what to
+    do next reads it to judge which entries are due. One still holding
+    the template's placeholder tells it nothing, so it is a finding
+    straight away, not only once closed as a conclusion is.
+    """
+    good, findings = readable_debt(config)
+    known = {item.id for item in readable(config)[0]}
+    for item in good:
+        if item.resolved is None and _docs.PLACEHOLDER in item.repay_when:
+            findings.append(
+                Finding(
+                    where=_where(item.path, config),
+                    what="is open and still has the template's repay_when, which is what the debt index shows",
+                )
+            )
+        if item.decision is not None and item.decision not in known:
+            findings.append(
+                Finding(
+                    where=_where(item.path, config),
+                    what=f"names decision {item.decision}, which does not exist",
+                )
+            )
+    return findings
+
+
 def links_resolve(config: Config) -> list[Finding]:
     """Every relative link in the record points at something."""
     moved_to = {item.id: item.path for item in readable(config)[0]}
@@ -373,8 +439,8 @@ def describing_now(config: Config) -> list[Path]:
     """
     return sorted(
         path
-        for directory in (config.decisions, config.investigations)
-        if directory.is_dir()
+        for directory in (config.decisions, config.investigations, config.debt)
+        if directory is not None and directory.is_dir()
         for path in directory.rglob("*.md")
     )
 
@@ -500,7 +566,10 @@ def _cited_ids(config: Config) -> dict[str, set[str]]:
     for directory, found in (
         (config.decisions, [item.id for item in readable(config)[0]]),
         (config.investigations, [item.id for item in readable_investigations(config)[0]]),
+        (config.debt, [item.id for item in readable_debt(config)[0]]),
     ):
+        if directory is None:
+            continue
         try:
             where = directory.relative_to(config.root).as_posix()
         except ValueError:

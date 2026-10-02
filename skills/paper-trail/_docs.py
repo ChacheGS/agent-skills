@@ -1,4 +1,4 @@
-"""Reading the record: decisions, investigations, and the ADRs they cite.
+"""Reading the record: decisions, investigations, debt, and the ADRs they cite.
 
 TOML frontmatter rather than YAML because there is no YAML parser in the
 standard library and hand-rolling one is how prose gets eaten. ADRs that
@@ -214,6 +214,81 @@ def investigations_in(listed: list[Path]) -> list[Investigation]:
             title=str(fields["title"]),
             opened=fields["opened"],
             answered=fields.get("answered"),
+            decision=(str(fields["decision"]) if fields.get("decision") else None),
+            path=path,
+            body=body,
+        )
+        if named.group(1) != item.id:
+            raise PaperTrailError(
+                f"{path.name} starts with {named.group(1)} and its frontmatter says "
+                f"{item.id}. The filename is what a link resolves against."
+            )
+        seen = found.get(item.id)
+        if seen is not None:
+            raise PaperTrailError(
+                f"{seen.path.name} and {path.name} share the id {item.id}, so a link "
+                f"to it points at whichever sorted first"
+            )
+        found[item.id] = item
+    return [found[key] for key in sorted(found)]
+
+
+@dataclass(frozen=True)
+class Debt:
+    id: str
+    title: str
+    opened: date
+    repay_when: str
+    resolved: date | None
+    decision: str | None
+    path: Path
+    body: str
+
+
+def debt(config: Config) -> list[Debt]:
+    """Every debt entry, by id. Nothing when the repo keeps none."""
+    if config.debt is None or not config.debt.is_dir():
+        return []
+    return debt_in(sorted(item for item in config.debt.iterdir() if item.suffix == ".md"))
+
+
+def debt_in(listed: list[Path]) -> list[Debt]:
+    """The debt entries in exactly these files, by id.
+
+    Strict about `repay_when`, because an entry that cannot say when it
+    is worth paying is a wish, and a list of wishes is a backlog.
+    """
+    found: dict[str, Debt] = {}
+    for path in listed:
+        named = NAMED.match(path.stem)
+        if named is None:
+            raise PaperTrailError(
+                f"{path.name} is not named NNNN-slug.md, so nothing can link to it by id"
+            )
+        try:
+            fields, body = frontmatter(read(path))
+        except PaperTrailError as broken:
+            raise PaperTrailError(f"{path}: {broken}") from None
+
+        for required in ("id", "title", "opened", "repay_when"):
+            if required not in fields:
+                raise PaperTrailError(f"{path}: frontmatter has no {required}")
+        for when in ("opened", "resolved"):
+            given = fields.get(when)
+            if given is not None and not isinstance(given, date):
+                raise PaperTrailError(
+                    f"{path}: {when} is {given!r}, which is not a date. TOML writes one "
+                    f"bare, as 2026-09-28, and quoting it makes it a string nothing can "
+                    f"compare."
+                )
+        if not str(fields["repay_when"]).strip():
+            raise PaperTrailError(f"{path}: repay_when is empty")
+        item = Debt(
+            id=str(fields["id"]),
+            title=str(fields["title"]),
+            opened=fields["opened"],
+            repay_when=str(fields["repay_when"]).strip(),
+            resolved=fields.get("resolved"),
             decision=(str(fields["decision"]) if fields.get("decision") else None),
             path=path,
             body=body,
