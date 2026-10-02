@@ -107,8 +107,8 @@ hand-edit to it is a finding.
 - A debt entry that does not parse, has no `repay_when`, is still open
   with the template's `repay_when`, or names a decision that does not
   exist.
-- A cited decision id that no longer exists (see "Code that cites the
-  record").
+- A cited id that no longer exists, or that was superseded, answered or
+  resolved (see "Code that cites the record").
 
 Two things are printed but never counted as findings: a vendored copy
 whose `VERSION` differs from the `skill_version` recorded in the config,
@@ -203,6 +203,11 @@ Empty by default. Matched by id rather than by filename, because an id is
 what a person writes and it survives the title being reworded. Only the
 id is checked, so `docs/decisions/0066` and
 `docs/decisions/0066-whatever-it-was-called.md` are both fine.
+
+A citation that resolves is still reported when what it names has moved
+on: a decision that was superseded, an investigation that was answered,
+a debt entry that was resolved. Cite the successor, or the decision that
+kept the conclusion, and delete a comment about debt that is paid.
 
 ## What the checks cannot do
 

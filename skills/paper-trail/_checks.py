@@ -629,13 +629,30 @@ def stale_investigations(config: Config) -> tuple[list[Finding], str | None]:
     return findings, None
 
 
-def _cited_ids(config: Config) -> dict[str, set[str]]:
-    """The ids that exist, by the directory a citation would name."""
+def _no_longer_live(item) -> str:
+    """Why a citation to this record is probably stale, or nothing.
+
+    A decision that was superseded has a successor to cite. An
+    investigation that was answered kept its conclusion in a decision. A
+    debt entry that was paid makes any comment about the shortcut false.
+    """
+    if getattr(item, "superseded_by", None):
+        return f"superseded by {item.superseded_by}"
+    if getattr(item, "answered", None) is not None:
+        return f"answered, so cite decision {item.decision} instead"
+    if getattr(item, "resolved", None) is not None:
+        return "resolved, so a comment about it may be stale"
+    return ""
+
+
+def _cited_ids(config: Config) -> dict[str, dict[str, str]]:
+    """The ids that exist by the directory a citation would name, each
+    with the reason it is no longer live, or empty if it is."""
     ids = {}
     for directory, found in (
-        (config.decisions, [item.id for item in readable(config)[0]]),
-        (config.investigations, [item.id for item in readable_investigations(config)[0]]),
-        (config.debt, [item.id for item in readable_debt(config)[0]]),
+        (config.decisions, readable(config)[0]),
+        (config.investigations, readable_investigations(config)[0]),
+        (config.debt, readable_debt(config)[0]),
     ):
         if directory is None:
             continue
@@ -643,7 +660,7 @@ def _cited_ids(config: Config) -> dict[str, set[str]]:
             where = directory.relative_to(config.root).as_posix()
         except ValueError:
             continue
-        ids[where] = set(found)
+        ids[where] = {item.id: _no_longer_live(item) for item in found}
     return ids
 
 
@@ -655,6 +672,9 @@ def citations_resolve(config: Config) -> list[Finding]:
     "see docs/decisions/0004" is how an explanation earns the right to
     live in exactly one place, and it stops being true the moment that
     decision is renumbered, superseded into a new file, or deleted.
+    A citation to something superseded, answered or resolved is reported
+    too: the file is there, and the pointer is still stale.
+    See docs/decisions/0008.
 
     Only the globs the repo lists under paths.cites, because only it
     knows which of its sources cite the record. Matched by id rather than
@@ -682,12 +702,12 @@ def citations_resolve(config: Config) -> list[Finding]:
                 continue
             for where, cited in dict.fromkeys(pattern.findall(text)):
                 if cited not in known[where]:
-                    findings.append(
-                        Finding(
-                            where=_where(path, config),
-                            what=f"cites {where}/{cited}, which does not exist",
-                        )
-                    )
+                    what = f"cites {where}/{cited}, which does not exist"
+                elif known[where][cited]:
+                    what = f"cites {where}/{cited}, which is {known[where][cited]}"
+                else:
+                    continue
+                findings.append(Finding(where=_where(path, config), what=what))
     return findings
 
 

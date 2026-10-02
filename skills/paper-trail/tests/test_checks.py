@@ -917,6 +917,54 @@ class CitationsResolve(unittest.TestCase):
             self.assertIn("docs/decisions/0404", findings[0].what)
             self.assertIn("a.c", findings[0].where)
 
+    def test_a_citation_of_a_superseded_decision_is_a_finding(self):
+        with TemporaryDirectory() as name:
+            config = self.repo(Path(name), "/* see docs/decisions/0001 */\n")
+            path = config.decisions / "0001-a-thing.md"
+            path.write_text(
+                path.read_text().replace(
+                    'status = "open"',
+                    'status = "superseded"\nclosed = 2026-09-26\nsuperseded_by = "0002"',
+                )
+            )
+
+            findings = _checks.citations_resolve(config)
+
+            self.assertEqual(len(findings), 1)
+            self.assertIn("superseded by 0002", findings[0].what)
+
+    def test_a_citation_of_an_answered_investigation_says_to_cite_the_decision(self):
+        with TemporaryDirectory() as name:
+            config = self.repo(Path(name), "/* docs/investigations/0003 */\n")
+            (config.investigations / "0003-a-hunt.md").write_text(
+                INVESTIGATION.format(
+                    id="0003", title="a hunt", extra='answered = 2026-09-30\ndecision = "0001"\n'
+                )
+            )
+
+            findings = _checks.citations_resolve(config)
+
+            self.assertEqual(len(findings), 1)
+            self.assertIn("cite decision 0001", findings[0].what)
+
+    def test_a_citation_of_resolved_debt_is_a_finding(self):
+        with TemporaryDirectory() as name:
+            config = fixtures.repo(
+                Path(name),
+                debt="docs/debt",
+                cites=["src/*.c"],
+                extra={"src/a.c": "/* docs/debt/0001 */\n"},
+            )
+            config.debt.mkdir(parents=True, exist_ok=True)
+            (config.debt / "0001-a-shortcut.md").write_text(
+                DEBT.format(id="0001", repay="x", extra="resolved = 2026-10-01\n")
+            )
+
+            findings = _checks.citations_resolve(config)
+
+            self.assertEqual(len(findings), 1)
+            self.assertIn("resolved", findings[0].what)
+
     def test_nothing_is_scanned_without_the_knob(self):
         with TemporaryDirectory() as name:
             config = self.repo(Path(name), "/* see docs/decisions/0404 */\n", cites=None)

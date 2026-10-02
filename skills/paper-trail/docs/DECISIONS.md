@@ -20,3 +20,4 @@ Nothing open.
 | 0005 | [Debt is never reported stale and must say when to repay it](decisions/0005-debt-is-never-stale.md) | resolved | A debt entry needs a repay_when condition, and no age ever counts against it. |
 | 0006 | [A vendored copy cannot see upstream, and does not pretend to](decisions/0006-a-vendored-copy-cannot-see-upstream.md) | resolved | skill_version records what was adopted; check.py reports a mismatch with the copy beside it, never with upstream. |
 | 0007 | [The agent and CI run the same copy of the scripts](decisions/0007-agent-and-ci-run-the-same-copy.md) | resolved | A repo that vendors the scripts names where, and check.py says so when it ran from anywhere else. |
+| 0008 | [Citing something no longer live is a finding](decisions/0008-citing-something-no-longer-live-is-a-finding.md) | resolved | Code that cites a superseded decision, an answered investigation or resolved debt is reported, though the file still exists. |
