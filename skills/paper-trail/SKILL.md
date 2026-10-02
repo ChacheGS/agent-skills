@@ -20,6 +20,30 @@ address: links carry the whole filename so an editor can follow them, and
 the number is what lets a retitled decision keep every link pointing at
 it.
 
+## A decision's frontmatter
+
+```toml
+id = "0007"              # must match the filename
+title = "..."
+status = "open"          # open, resolved, rejected or superseded
+opened = 2026-09-28      # a bare TOML date; quoted, it is a string
+closed = 2026-10-02      # required once status is not open
+conclusion = "One sentence, the thing a reader needs."
+adr = []                 # repo-relative paths, each must exist
+spec = []
+plan = []
+superseded_by = "0012"   # required when status is superseded
+```
+
+`conclusion` is what the index shows, so write it last and write it for
+someone who will not open the file. `new.py` starts it as `TO BE
+WRITTEN`, and a decision that has closed with that still in place is
+reported.
+
+To supersede: set `status = "superseded"`, `closed`, and `superseded_by`,
+then run `index.py`. Leave the old file where it is. Its number is still
+an address.
+
 ## One fact, one home
 
 A claim that needs explaining lives in exactly one place, and everywhere
@@ -29,16 +53,11 @@ and the one that gets missed reads as current.
 This is the rule the checks enforce, and it is why the index is generated
 rather than written: a status in two places is two places to be wrong.
 
-## Evidence
-
-- Semantics need the operation run. A route that exists, a `--help` flag,
-  a type signature: these prove reachability, not behaviour.
-- Contradicting a tool's own statement raises the bar rather than
-  lowering it. Demonstrate it end to end, or believe the tool.
-- A test double's behaviour is a claim about the platform. Point at the
-  live assertion that checks it, or say in a comment that it is a guess.
-
 ## The scripts
+
+`<here>` is the directory holding these scripts: wherever the adopting
+repo copied them, or wherever this skill is installed. `--root` is the
+repo whose `.paper-trail.toml` says where the record lives.
 
 - `python3 <here>/check.py --root .` runs every check. 0 clean, 1
   findings, 2 could not run.
@@ -49,6 +68,31 @@ rather than written: a status in two places is two places to be wrong.
 
 Where those run is the adopting repo's business. This skill names no
 build system, no target and no hook.
+
+Run `check.py` after touching the record, and `index.py` after changing
+any decision's status or conclusion. The index is generated, so a
+hand-edit to it is a finding.
+
+## What the checks report
+
+- The index differs from what the decisions say.
+- A decision or investigation that does not parse, or has a bad field.
+- A decision that is not open and has no `closed` date, or still has the
+  placeholder conclusion.
+- A link, an `adr`/`spec`/`plan` entry, or a `superseded_by` id that points
+  at nothing.
+- A backticked repo path in a decision or investigation that is not in
+  the repo.
+- An investigation untouched for longer than `investigation_days`
+  (default 14, set under `[thresholds]`), unless it is answered.
+- An investigation that is answered but names no decision, or the
+  reverse.
+- A cited decision id that no longer exists (see "Code that cites the
+  record").
+
+Two things are printed but never counted as findings: a vendored copy
+whose `VERSION` differs from the `skill_version` recorded in the config,
+and investigations with no frontmatter, which are left out.
 
 ## Closing an investigation
 
@@ -64,15 +108,14 @@ decision = "0067"
 ```
 
 Both, or neither. An answered investigation stops being reported as
-stale, and its title stops being the only thing a reader sees - which
+stale, and its title stops being the only thing a reader sees. That
 matters because a title is written when the question is open, and a file
 called "whether X works is unproven" still says that months after X was
 proven.
 
 An investigation with no frontmatter at all is read as a note and left
-out of these checks rather than reported as broken - the skill shipped
-without reading investigations, so an existing one is not a defect. The
-run says which files those are, so the exemption is visible and someone
+out of these checks rather than reported as broken, so an existing one
+is not a defect. The run says which files those are, so the exemption is visible and someone
 can end it by adding the header.
 
 ## What a document is asked
@@ -96,7 +139,7 @@ List the files that cite it and they get checked:
 
 ```toml
 [paths]
-cites = ["firmware/common/src/*.c", "digital-twin/scenarios/*.robot"]
+cites = ["some/path/src/*.c", "some/other/path/*.js"]
 ```
 
 Empty by default. Matched by id rather than by filename, because an id is
@@ -115,10 +158,7 @@ Nothing here reads prose for truth either. A path check catches a record
 naming a file that moved; it cannot catch a record whose sentences are
 simply no longer true, a comment explaining a line a later commit
 deleted, or a conclusion stated more confidently than what was measured.
-Those need a reader. In one adopting repo a review found five comments
-justifying code that no longer existed, and every check passed on all
-five.
+Those need a reader.
 
 The path check also reads only decisions and investigations. Prose in
-source files, test scenarios and READMEs is outside it, which is where
-that same review found the stale ones.
+source files, tests and READMEs is outside it.
