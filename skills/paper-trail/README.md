@@ -65,6 +65,30 @@ python3 tools/paper-trail/check.py --root .
 
 That distinction is the contract. Only one of those should stop a build.
 
+A GitHub Actions job, as a starting point. Adjust the path to wherever
+you vendored the scripts. `fetch-depth: 0` matters: the staleness check
+reads each investigation's last commit, and a shallow clone has no
+history to read.
+
+```yaml
+name: record
+on: [push, pull_request]
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python3 tools/paper-trail/check.py --root .
+```
+
+This fails the job on 1 and on 2. Once a repo has adopted the skill, a
+config that cannot be read is worth stopping for too.
+
 ## 4. Tell your agent where the scripts are
 
 A vendored copy is invisible to an agent that has never been told it
